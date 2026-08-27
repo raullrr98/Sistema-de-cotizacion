@@ -140,12 +140,32 @@
               <option value="asuncion">Asunción</option>
               <option value="granAsuncion">Gran Asunción</option>
               <option value="interior">Interior</option>
+              <option value="combinada">Combinada (Asunción + Gran Asunción + Interior)</option>
             </select>
           </div>
 
           <div class="form-field" id="departmentWrapper" style="display:none;">
             <label for="department">Departamento o ciudad <button type="button" class="info-icon" data-info="department" aria-label="Información">i</button></label>
             <input type="text" id="department" name="department" placeholder="Ej: Ciudad del Este, Alto Paraná">
+          </div>
+
+          <div class="form-field form-field-full" id="zoneSplitWrapper" style="display:none;">
+            <label style="margin-bottom:8px;">Reparto de PDV por zona</label>
+            <div class="checkbox-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+              <div class="form-field">
+                <label for="pdvAsuncion">PDV en Asunción <button type="button" class="info-icon" data-info="pdvAsuncion" aria-label="Información">i</button></label>
+                <input type="number" id="pdvAsuncion" name="pdvAsuncion" min="0" value="0">
+              </div>
+              <div class="form-field">
+                <label for="pdvGranAsuncion">PDV en Gran Asunción <button type="button" class="info-icon" data-info="pdvGranAsuncion" aria-label="Información">i</button></label>
+                <input type="number" id="pdvGranAsuncion" name="pdvGranAsuncion" min="0" value="0">
+              </div>
+              <div class="form-field">
+                <label for="pdvInterior">PDV en Interior <button type="button" class="info-icon" data-info="pdvInterior" aria-label="Información">i</button></label>
+                <input type="number" id="pdvInterior" name="pdvInterior" min="0" value="0">
+              </div>
+            </div>
+            <p class="muted small-note">La suma de estos 3 campos debe ser igual a la "Cantidad de puntos de venta (PDV)" indicada arriba.</p>
           </div>
 
           <div class="form-field">
@@ -236,12 +256,31 @@
                 <option value="asuncion">Asunción</option>
                 <option value="granAsuncion">Gran Asunción</option>
                 <option value="interior">Interior</option>
+                <option value="combinada">Combinada (las 3 zonas)</option>
               </select>
             </div>
 
             <div class="form-field" id="rapidoDepartmentWrapper" style="display:none;">
               <label for="rapidoDepartment">Departamento o ciudad <button type="button" class="info-icon" data-info="rapidoDepartment" aria-label="Información">i</button></label>
               <input type="text" id="rapidoDepartment" placeholder="Ej: Encarnación">
+            </div>
+
+            <div class="form-field form-field-full" id="rapidoZoneSplitWrapper" style="display:none;">
+              <label style="margin-bottom:8px;">Reparto de PDV por zona</label>
+              <div class="checkbox-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+                <div class="form-field">
+                  <label for="rapidoPdvAsuncion">PDV en Asunción <button type="button" class="info-icon" data-info="rapidoPdvAsuncion" aria-label="Información">i</button></label>
+                  <input type="number" id="rapidoPdvAsuncion" min="0" value="0">
+                </div>
+                <div class="form-field">
+                  <label for="rapidoPdvGranAsuncion">PDV en Gran Asunción <button type="button" class="info-icon" data-info="rapidoPdvGranAsuncion" aria-label="Información">i</button></label>
+                  <input type="number" id="rapidoPdvGranAsuncion" min="0" value="0">
+                </div>
+                <div class="form-field">
+                  <label for="rapidoPdvInterior">PDV en Interior <button type="button" class="info-icon" data-info="rapidoPdvInterior" aria-label="Información">i</button></label>
+                  <input type="number" id="rapidoPdvInterior" min="0" value="0">
+                </div>
+              </div>
             </div>
 
             <div class="form-field">
@@ -448,6 +487,31 @@
           <div class="form-field">
             <label for="descuentoMaximoPercent">Descuento máximo permitido (%) <button type="button" class="info-icon" data-info="descuentoMaximoPercent" aria-label="Información">i</button></label>
             <input type="number" id="descuentoMaximoPercent" name="descuentoMaximoPercent" min="0" step="0.5">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Mano de obra (horas hombre)</legend>
+          <p class="muted small-note form-field-full" style="margin:-4px 0 4px;">
+            Estos valores permiten calcular el costo REAL de la hora trabajada por los auditores,
+            incluyendo las cargas sociales obligatorias (aguinaldo e IPS patronal), y sumarlo
+            automáticamente a cada cotización.
+          </p>
+          <div class="form-field">
+            <label for="costoPorHoraHombre">Costo por hora hombre (Gs., sin cargas) <button type="button" class="info-icon" data-info="costoPorHoraHombre" aria-label="Información">i</button></label>
+            <input type="text" id="costoPorHoraHombre" name="costoPorHoraHombre" inputmode="numeric">
+          </div>
+          <div class="form-field">
+            <label for="horasPorVisitaPdv">Horas por visita a un PDV <button type="button" class="info-icon" data-info="horasPorVisitaPdv" aria-label="Información">i</button></label>
+            <input type="number" id="horasPorVisitaPdv" name="horasPorVisitaPdv" min="0" step="0.5">
+          </div>
+          <div class="form-field">
+            <label for="aguinaldoPercent">Aguinaldo (%) <button type="button" class="info-icon" data-info="aguinaldoPercent" aria-label="Información">i</button></label>
+            <input type="number" id="aguinaldoPercent" name="aguinaldoPercent" min="0" step="0.01">
+          </div>
+          <div class="form-field">
+            <label for="ipsPatronalPercent">IPS patronal (%) <button type="button" class="info-icon" data-info="ipsPatronalPercent" aria-label="Información">i</button></label>
+            <input type="number" id="ipsPatronalPercent" name="ipsPatronalPercent" min="0" step="0.5">
           </div>
         </fieldset>
 

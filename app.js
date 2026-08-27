@@ -72,6 +72,12 @@ function getDefaultConfig() {
     ivaPercent: 10,
     descuentoMaximoPercent: 15,
 
+    // --- Mano de obra (horas hombre), con cargas sociales (VALORES DE EJEMPLO) ---
+    costoPorHoraHombre: 25000, // Gs. por hora de trabajo del auditor, sin cargas
+    horasPorVisitaPdv: 2, // horas que un auditor dedica a cada visita de un PDV
+    aguinaldoPercent: 8.33, // % legal del aguinaldo (equivalente a 1/12 del salario)
+    ipsPatronalPercent: 16.5, // % de aporte patronal al IPS
+
     moneda: 'PYG',
   };
 }
@@ -163,6 +169,14 @@ function escalasOrdenadas(scales) {
   return [...scales].sort((a, b) => a.min - b.min);
 }
 
+// Etiquetas legibles para cada zona (se usan en toda la aplicación).
+const ZONA_LABELS = {
+  asuncion: 'Asunción',
+  granAsuncion: 'Gran Asunción',
+  interior: 'Interior',
+  combinada: 'Combinada (Asunción + Gran Asunción + Interior)',
+};
+
 /**
  * Devuelve la cantidad de productos incluidos configurada para una escala.
  * Si la escala no tiene el campo (configuraciones antiguas), usa el valor
@@ -245,6 +259,7 @@ function calcularCotizacion(inputs, config) {
   const visitasPorPdv = Number(inputs.visitsPerPdv) || 1;
   const duracionMeses = Number(inputs.durationMonths) || 1;
   const ciclos = calcularCiclos(inputs.frequency, duracionMeses);
+  const totalVisitas = visitasPorPdv * ciclos * pdv;
 
   // --- 1. Precio base ---
   const baseInfo = obtenerPrecioBasePorPDV(pdv, config);
@@ -265,8 +280,25 @@ function calcularCotizacion(inputs, config) {
 
   // --- 4. Recargo por zona (sobre el subtotal recurrente) ---
   let porcentajeZona = 0;
-  if (inputs.zone === 'granAsuncion') porcentajeZona = Number(config.surchargeGranAsuncionPercent) || 0;
-  if (inputs.zone === 'interior') porcentajeZona = Number(config.surchargeInteriorPercent) || 0;
+  if (inputs.zone === 'granAsuncion') {
+    porcentajeZona = Number(config.surchargeGranAsuncionPercent) || 0;
+  } else if (inputs.zone === 'interior') {
+    porcentajeZona = Number(config.surchargeInteriorPercent) || 0;
+  } else if (inputs.zone === 'combinada') {
+    // Zona combinada: se distribuyen los PDV entre las 3 zonas y se calcula
+    // un porcentaje de recargo PONDERADO según qué proporción de PDV cae en
+    // cada zona (Asunción no suma recargo).
+    const pAsuncion = Number(inputs.pdvAsuncion) || 0;
+    const pGranAsuncion = Number(inputs.pdvGranAsuncion) || 0;
+    const pInterior = Number(inputs.pdvInterior) || 0;
+    const totalZona = pAsuncion + pGranAsuncion + pInterior;
+    const base = totalZona > 0 ? totalZona : pdv;
+    if (base > 0) {
+      porcentajeZona =
+        (pGranAsuncion * (Number(config.surchargeGranAsuncionPercent) || 0) +
+          pInterior * (Number(config.surchargeInteriorPercent) || 0)) / base;
+    }
+  }
   const recargoZona = subtotalRecurrente * (porcentajeZona / 100);
 
   // --- 5. Auditores ---
@@ -295,13 +327,23 @@ function calcularCotizacion(inputs, config) {
   const costoDashboard = inputs.requiresDashboard ? Number(config.costoDashboard) || 0 : 0;
   const costoPresentacion = inputs.requiresPresentacion ? Number(config.costoPresentacion) || 0 : 0;
 
+  // --- 7B. Mano de obra (horas hombre), con cargas sociales (aguinaldo + IPS) ---
+  // Costo real de la hora trabajada por los auditores, incluyendo las cargas
+  // sociales obligatorias, para que el precio contemple el costo laboral real.
+  const horasPorVisita = Number(config.horasPorVisitaPdv) || 0;
+  const horasHombreTotales = horasPorVisita * totalVisitas;
+  const aguinaldoPercent = Number(config.aguinaldoPercent) || 0;
+  const ipsPatronalPercent = Number(config.ipsPatronalPercent) || 0;
+  const costoHoraHombreCargado = (Number(config.costoPorHoraHombre) || 0) * (1 + (aguinaldoPercent + ipsPatronalPercent) / 100);
+  const costoManoDeObra = horasHombreTotales * costoHoraHombreCargado;
+
   // --- 8. Costo adicional manual ---
   const costoAdicionalManual = Number(inputs.extraCostManual) || 0;
 
   const subtotalOperativo =
     costoTraslado + costoViaticos + costoAlojamiento +
     costoFotografia + costoInforme + costoDashboard + costoPresentacion +
-    costoAdicionalManual;
+    costoManoDeObra + costoAdicionalManual;
 
   const subtotalAntesMargen = subtotalRecurrente + recargoZona + subtotalOperativo;
 
@@ -325,9 +367,11 @@ function calcularCotizacion(inputs, config) {
   // --- 12. Total ---
   const total = subtotalConDescuento + montoIva;
 
-  const totalVisitas = visitasPorPdv * ciclos * pdv;
   const costoPromedioPorPdv = pdv > 0 ? total / pdv : 0;
   const costoPromedioPorVisita = totalVisitas > 0 ? total / totalVisitas : 0;
+  // Costo mensual estimado: distribuye el total del proyecto entre la
+  // cantidad de meses de duración, para dar una referencia de gasto mensual.
+  const costoMensualEstimado = total / duracionMeses;
 
   return {
     inputs,
@@ -349,6 +393,9 @@ function calcularCotizacion(inputs, config) {
       costoInforme,
       costoDashboard,
       costoPresentacion,
+      horasHombreTotales,
+      costoHoraHombreCargado,
+      costoManoDeObra,
       costoAdicionalManual,
       subtotalOperativo,
       subtotalAntesMargen,
@@ -364,6 +411,7 @@ function calcularCotizacion(inputs, config) {
     },
     totalProductos: productosPorPdv * pdv,
     totalVisitas,
+    costoMensualEstimado,
     productosIncluidosEscala: productosIncluidos,
     costoPromedioPorPdv,
     costoPromedioPorVisita,
@@ -412,7 +460,7 @@ function attachMilesFormatting(el) {
 const CAMPOS_MONEDA_CONFIG = [
   'extraProductSurcharge', 'costoTraslado', 'viaticoPorAuditorPorDia',
   'alojamientoPorAuditorPorNoche', 'costoVisitaAdicional', 'costoEvidenciaFotografica',
-  'costoInformeFinal', 'costoDashboard', 'costoPresentacion',
+  'costoInformeFinal', 'costoDashboard', 'costoPresentacion', 'costoPorHoraHombre',
 ];
 
 function validarFormularioCotizacion(inputs) {
@@ -441,6 +489,15 @@ function validarFormularioCotizacion(inputs) {
   }
   if (inputs.zone === 'interior' && (!inputs.department || inputs.department.trim() === '')) {
     errores.push('Debe indicar el departamento o ciudad para la zona Interior.');
+  }
+  if (inputs.zone === 'combinada') {
+    const pAsuncion = Number(inputs.pdvAsuncion) || 0;
+    const pGranAsuncion = Number(inputs.pdvGranAsuncion) || 0;
+    const pInterior = Number(inputs.pdvInterior) || 0;
+    const sumaZonas = pAsuncion + pGranAsuncion + pInterior;
+    if (sumaZonas !== Number(inputs.pdvCount)) {
+      errores.push(`La suma de PDV por zona (${sumaZonas}) debe ser igual a la cantidad total de PDV (${inputs.pdvCount}).`);
+    }
   }
   if (inputs.auditorsMode === 'manual' && (!inputs.auditorsCount || Number(inputs.auditorsCount) <= 0)) {
     errores.push('Debe indicar una cantidad de auditores válida en modo manual.');
@@ -516,8 +573,11 @@ const INFO_TEXTS = {
   visitsPerPdv: 'Cantidad de visitas que se realizan a CADA PDV dentro de un mismo ciclo (por ejemplo, dentro de un mes si la frecuencia es mensual). La primera visita ya está incluida en el precio base; desde la segunda en adelante se cobra el "Costo por visita adicional" configurado.',
   frequency: 'Con qué periodicidad se repite el servicio. "Única" = una sola vez. Semanal/Quincenal/Mensual se repiten durante toda la "Duración del proyecto". Junto con la duración, define la cantidad de "ciclos" de cobro.',
   durationMonths: 'Cantidad de meses que dura el proyecto. Combinado con la frecuencia, determina la cantidad de ciclos de cobro. Ejemplo: frecuencia mensual x 3 meses = 3 ciclos completos.',
-  zone: 'Ubicación general de los PDV. "Asunción" no tiene recargo. "Gran Asunción" e "Interior" suman el porcentaje de recargo de zona configurado en Configuración de costos.',
+  zone: 'Ubicación general de los PDV. "Asunción" no tiene recargo. "Gran Asunción" e "Interior" suman el porcentaje de recargo de zona configurado en Configuración de costos. "Combinada" permite repartir los PDV entre las 3 zonas cuando el cliente tiene locales en distintos lugares del país.',
   department: 'Departamento o ciudad específica (por ejemplo, dentro de Gran Asunción o Interior). Es solo informativo: no cambia el precio, solo aparece en el documento.',
+  pdvAsuncion: 'Cantidad de PDV ubicados en Asunción (sin recargo de zona). La suma de los 3 campos de zona debe ser igual a la "Cantidad de puntos de venta" total.',
+  pdvGranAsuncion: 'Cantidad de PDV ubicados en Gran Asunción. Se les aplica el recargo de zona configurado para Gran Asunción. La suma de los 3 campos debe ser igual al total de PDV.',
+  pdvInterior: 'Cantidad de PDV ubicados en el Interior del país. Se les aplica el recargo de zona configurado para Interior. La suma de los 3 campos debe ser igual al total de PDV.',
   auditorsMode: '"Automático": el sistema calcula la cantidad de auditores dividiendo la cantidad de PDV entre la capacidad configurada en "PDV cubiertos por auditor" (Configuración). "Manual": usted define la cantidad exacta de auditores.',
   auditorsCount: 'Cantidad exacta de auditores a asignar (solo si eligió el modo "Manual"). Este número se usa para calcular el costo de traslado, viáticos y alojamiento si están marcados.',
 
@@ -539,8 +599,11 @@ const INFO_TEXTS = {
   rapidoCliente: 'Nombre del cliente (opcional). Si lo completa, se transfiere al formulario de "Nueva cotización" al presionar "Usar estos datos".',
   rapidoPdvCount: 'Cantidad de puntos de venta a auditar. Es el único dato obligatorio para poder calcular un estimado rápido.',
   rapidoProductsPerPdv: 'Cantidad aproximada de productos por cada PDV. Si supera lo incluido en la escala correspondiente, se recarga por cada producto adicional (igual que en la cotización completa).',
-  rapidoZone: 'Ubicación de los PDV. Gran Asunción e Interior aplican el recargo de zona configurado.',
+  rapidoZone: 'Ubicación de los PDV. Gran Asunción e Interior aplican el recargo de zona configurado. "Combinada" permite repartir los PDV entre las 3 zonas.',
   rapidoDepartment: 'Departamento o ciudad específica. Solo informativo.',
+  rapidoPdvAsuncion: 'Cantidad de PDV en Asunción (sin recargo). La suma de los 3 campos debe ser igual al total de PDV.',
+  rapidoPdvGranAsuncion: 'Cantidad de PDV en Gran Asunción (con su recargo de zona). La suma de los 3 campos debe ser igual al total de PDV.',
+  rapidoPdvInterior: 'Cantidad de PDV en el Interior (con su recargo de zona). La suma de los 3 campos debe ser igual al total de PDV.',
   rapidoVisitsPerPdv: 'Cantidad de visitas a cada PDV por ciclo. La primera está incluida; desde la segunda se cobra el costo de visita adicional.',
   rapidoFrequency: 'Periodicidad del servicio. En el cálculo rápido, por defecto se deja en "Única" para simplificar la estimación.',
   rapidoDurationMonths: 'Cantidad de meses del proyecto. Junto con la frecuencia define la cantidad de ciclos de cobro.',
@@ -576,6 +639,12 @@ const INFO_TEXTS = {
   margenComercialPercent: 'Porcentaje de ganancia que se agrega sobre el subtotal de costos (antes del descuento y el IVA). Es la utilidad de la empresa: se muestra en el desglose interno y en el PDF interno, pero NUNCA en la versión para el cliente.',
   ivaPercent: 'Porcentaje de IVA que se aplica sobre el subtotal final, después de aplicar el descuento.',
   descuentoMaximoPercent: 'Porcentaje máximo de descuento que se puede aplicar en una cotización. Si en "Nueva cotización" se ingresa un descuento mayor a este valor, el sistema lo recorta automáticamente.',
+
+  // --- Configuración: Mano de obra (horas hombre) ---
+  costoPorHoraHombre: 'Costo bruto (sin cargas sociales) de UNA hora de trabajo de un auditor. Este valor se combina con el Aguinaldo y el IPS patronal para obtener el costo REAL de la hora trabajada.',
+  horasPorVisitaPdv: 'Cantidad de horas que un auditor dedica, en promedio, a UNA visita a UN PDV. Se multiplica por la cantidad total de visitas del proyecto (PDV × visitas × ciclos) para obtener las horas-hombre totales.',
+  aguinaldoPercent: 'Porcentaje que representa el aguinaldo (13er sueldo) sobre el costo de la hora hombre. Por ley equivale a 1/12 del salario, es decir, aproximadamente 8.33%. Se suma al costo por hora para reflejar el costo laboral real.',
+  ipsPatronalPercent: 'Porcentaje de aporte patronal al IPS (Instituto de Previsión Social) sobre el costo de la hora hombre. Se suma al costo por hora, junto con el aguinaldo, para calcular el costo real de la mano de obra que se incluye en cada cotización.',
 };
 
 let currentPopoverEl = null;
@@ -691,7 +760,9 @@ function initFormularioCotizacion() {
 
   document.getElementById('zone').addEventListener('change', (e) => {
     const showDept = e.target.value === 'interior' || e.target.value === 'granAsuncion';
+    const showSplit = e.target.value === 'combinada';
     document.getElementById('departmentWrapper').style.display = showDept ? 'block' : 'none';
+    document.getElementById('zoneSplitWrapper').style.display = showSplit ? 'block' : 'none';
   });
 
   document.getElementById('auditorsMode').addEventListener('change', (e) => {
@@ -711,6 +782,8 @@ function initFormularioCotizacion() {
       document.getElementById('formCotizacion').reset();
       document.getElementById('quoteDate').valueAsDate = new Date();
       document.getElementById('resultadoWrapper').innerHTML = '';
+      document.getElementById('departmentWrapper').style.display = 'none';
+      document.getElementById('zoneSplitWrapper').style.display = 'none';
       attachMilesFormatting(document.getElementById('extraCostManual'));
       APP_STATE.editingQuoteId = null;
       APP_STATE.lastResult = null;
@@ -736,6 +809,9 @@ function leerInputsFormulario() {
     durationMonths: f.durationMonths.value,
     zone: f.zone.value,
     department: f.department.value,
+    pdvAsuncion: f.pdvAsuncion.value,
+    pdvGranAsuncion: f.pdvGranAsuncion.value,
+    pdvInterior: f.pdvInterior.value,
     auditorsMode: f.auditorsMode.value,
     auditorsCount: f.auditorsCount.value,
 
@@ -775,7 +851,7 @@ function procesarCotizacion() {
 }
 
 function renderResultado(resultado, config) {
-  const { inputs, desglose, isCustom, ciclos, totalProductos, totalVisitas, costoPromedioPorPdv, costoPromedioPorVisita } = resultado;
+  const { inputs, desglose, isCustom, ciclos, totalProductos, totalVisitas, costoPromedioPorPdv, costoPromedioPorVisita, costoMensualEstimado } = resultado;
   const wrapper = document.getElementById('resultadoWrapper');
 
   const numeroCotizacion = APP_STATE.editingQuoteId
@@ -791,8 +867,11 @@ function renderResultado(resultado, config) {
   if (inputs.requiresDashboard) serviciosAdicionales.push('Dashboard de resultados');
   if (inputs.requiresPresentacion) serviciosAdicionales.push('Presentación de resultados');
 
-  const zonaLabel = { asuncion: 'Asunción', granAsuncion: 'Gran Asunción', interior: 'Interior' }[inputs.zone] || inputs.zone;
+  const zonaLabel = ZONA_LABELS[inputs.zone] || inputs.zone;
   const frecuenciaLabel = { unica: 'Única', semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual' }[inputs.frequency] || inputs.frequency;
+  const detalleZonaCombinada = inputs.zone === 'combinada'
+    ? ` (Asunción: ${inputs.pdvAsuncion || 0} · Gran Asunción: ${inputs.pdvGranAsuncion || 0} · Interior: ${inputs.pdvInterior || 0})`
+    : '';
 
   wrapper.innerHTML = `
     <div class="card result-card">
@@ -804,6 +883,7 @@ function renderResultado(resultado, config) {
         <div class="total-badge">
           <span class="total-label">Total estimado</span>
           <span class="total-value">${formatearMoneda(desglose.total, config.moneda)}</span>
+          <span class="total-secondary">≈ ${formatearMoneda(costoMensualEstimado, config.moneda)} / mes</span>
         </div>
       </div>
 
@@ -825,7 +905,7 @@ function renderResultado(resultado, config) {
             <dt>PDV</dt><dd>${inputs.pdvCount}</dd>
             <dt>Productos por PDV</dt><dd>${inputs.productsPerPdv}</dd>
             <dt>Total productos a auditar</dt><dd>${totalProductos.toLocaleString('es-PY')}</dd>
-            <dt>Zona</dt><dd>${zonaLabel}${inputs.department ? ' - ' + inputs.department : ''}</dd>
+            <dt>Zona</dt><dd>${zonaLabel}${inputs.department ? ' - ' + inputs.department : ''}${detalleZonaCombinada}</dd>
             <dt>Frecuencia</dt><dd>${frecuenciaLabel}</dd>
             <dt>Duración</dt><dd>${inputs.durationMonths} mes(es) · ${ciclos} ciclo(s) de visita</dd>
             <dt>Visitas totales</dt><dd>${totalVisitas}</dd>
@@ -845,7 +925,7 @@ function renderResultado(resultado, config) {
             <tr><td>Recargo por visitas adicionales (por ciclo)</td><td>${formatearMoneda(desglose.recargoVisitasCiclo, config.moneda)}</td></tr>
             <tr><td>Subtotal por ciclo</td><td>${formatearMoneda(desglose.subtotalPorCiclo, config.moneda)}</td></tr>
             <tr><td>Subtotal recurrente (× ${ciclos} ciclos)</td><td>${formatearMoneda(desglose.subtotalRecurrente, config.moneda)}</td></tr>
-            <tr><td>Recargo de zona (${desglose.porcentajeZona}%)</td><td>${formatearMoneda(desglose.recargoZona, config.moneda)}</td></tr>
+            <tr><td>Recargo de zona (${desglose.porcentajeZona.toFixed(2)}%)</td><td>${formatearMoneda(desglose.recargoZona, config.moneda)}</td></tr>
             <tr><td>Traslado</td><td>${formatearMoneda(desglose.costoTraslado, config.moneda)}</td></tr>
             <tr><td>Viáticos</td><td>${formatearMoneda(desglose.costoViaticos, config.moneda)}</td></tr>
             <tr><td>Alojamiento</td><td>${formatearMoneda(desglose.costoAlojamiento, config.moneda)}</td></tr>
@@ -853,6 +933,7 @@ function renderResultado(resultado, config) {
             <tr><td>Informe final</td><td>${formatearMoneda(desglose.costoInforme, config.moneda)}</td></tr>
             <tr><td>Dashboard</td><td>${formatearMoneda(desglose.costoDashboard, config.moneda)}</td></tr>
             <tr><td>Presentación de resultados</td><td>${formatearMoneda(desglose.costoPresentacion, config.moneda)}</td></tr>
+            <tr><td>Mano de obra (${desglose.horasHombreTotales.toLocaleString('es-PY')} horas c/cargas sociales)</td><td>${formatearMoneda(desglose.costoManoDeObra, config.moneda)}</td></tr>
             <tr><td>Costo adicional manual ${inputs.extraCostReason ? '(' + inputs.extraCostReason + ')' : ''}</td><td>${formatearMoneda(desglose.costoAdicionalManual, config.moneda)}</td></tr>
             <tr class="subtotal-row"><td>Subtotal antes de margen</td><td>${formatearMoneda(desglose.subtotalAntesMargen, config.moneda)}</td></tr>
             <tr><td>Margen de ganancia (${desglose.margenPercent}%)</td><td>${formatearMoneda(desglose.margenComercial, config.moneda)}</td></tr>
@@ -861,11 +942,13 @@ function renderResultado(resultado, config) {
             <tr class="subtotal-row"><td>Subtotal</td><td>${formatearMoneda(desglose.subtotalConDescuento, config.moneda)}</td></tr>
             <tr><td>IVA (${desglose.ivaPercent}%)</td><td>${formatearMoneda(desglose.montoIva, config.moneda)}</td></tr>
             <tr class="total-row"><td>TOTAL ESTIMADO</td><td>${formatearMoneda(desglose.total, config.moneda)}</td></tr>
+            <tr><td>Costo mensual estimado (promedio)</td><td>${formatearMoneda(costoMensualEstimado, config.moneda)}</td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="result-grid">
+        <div class="stat-card"><span class="stat-label">Costo mensual estimado</span><span class="stat-value">${formatearMoneda(costoMensualEstimado, config.moneda)}</span></div>
         <div class="stat-card"><span class="stat-label">Costo promedio por PDV</span><span class="stat-value">${formatearMoneda(costoPromedioPorPdv, config.moneda)}</span></div>
         <div class="stat-card"><span class="stat-label">Costo promedio por visita</span><span class="stat-value">${formatearMoneda(costoPromedioPorVisita, config.moneda)}</span></div>
         <div class="stat-card stat-card-margin"><span class="stat-label">Margen de ganancia (${desglose.margenPercent}%)</span><span class="stat-value">${formatearMoneda(desglose.margenComercial, config.moneda)}</span></div>
@@ -962,12 +1045,15 @@ function initCalculoRapido() {
 
   document.getElementById('rapidoZone').addEventListener('change', (e) => {
     const showDept = e.target.value === 'interior' || e.target.value === 'granAsuncion';
+    const showSplit = e.target.value === 'combinada';
     document.getElementById('rapidoDepartmentWrapper').style.display = showDept ? 'block' : 'none';
+    document.getElementById('rapidoZoneSplitWrapper').style.display = showSplit ? 'block' : 'none';
   });
 
   document.getElementById('btnLimpiarRapido').addEventListener('click', () => {
     document.getElementById('formRapido').reset();
     document.getElementById('rapidoDepartmentWrapper').style.display = 'none';
+    document.getElementById('rapidoZoneSplitWrapper').style.display = 'none';
     document.getElementById('resultadoRapidoWrapper').innerHTML = '';
   });
 }
@@ -988,6 +1074,9 @@ function construirInputsCalculoRapido() {
     durationMonths: document.getElementById('rapidoDurationMonths').value || 1,
     zone: document.getElementById('rapidoZone').value,
     department: document.getElementById('rapidoDepartment').value,
+    pdvAsuncion: document.getElementById('rapidoPdvAsuncion').value,
+    pdvGranAsuncion: document.getElementById('rapidoPdvGranAsuncion').value,
+    pdvInterior: document.getElementById('rapidoPdvInterior').value,
     auditorsMode: 'auto',
     auditorsCount: '',
     requiresTraslado: false,
@@ -1010,15 +1099,22 @@ function procesarCalculoRapido() {
     return;
   }
   const inputs = construirInputsCalculoRapido();
+  if (inputs.zone === 'combinada') {
+    const suma = (Number(inputs.pdvAsuncion) || 0) + (Number(inputs.pdvGranAsuncion) || 0) + (Number(inputs.pdvInterior) || 0);
+    if (suma !== pdvCount) {
+      alert(`La suma de PDV por zona (${suma}) debe ser igual a la cantidad total de PDV (${pdvCount}).`);
+      return;
+    }
+  }
   const config = getConfig();
   const resultado = calcularCotizacion(inputs, config);
   renderResultadoRapido(resultado, config, inputs);
 }
 
 function renderResultadoRapido(resultado, config, inputs) {
-  const { desglose, isCustom, costoPromedioPorPdv } = resultado;
+  const { desglose, isCustom, costoPromedioPorPdv, costoMensualEstimado } = resultado;
   const wrapper = document.getElementById('resultadoRapidoWrapper');
-  const zonaLabel = { asuncion: 'Asunción', granAsuncion: 'Gran Asunción', interior: 'Interior' }[inputs.zone] || inputs.zone;
+  const zonaLabel = ZONA_LABELS[inputs.zone] || inputs.zone;
 
   wrapper.innerHTML = `
     <div class="card result-card">
@@ -1031,11 +1127,13 @@ function renderResultadoRapido(resultado, config, inputs) {
         <div class="total-badge">
           <span class="total-label">Total estimado</span>
           <span class="total-value">${formatearMoneda(desglose.total, config.moneda)}</span>
+          <span class="total-secondary">≈ ${formatearMoneda(costoMensualEstimado, config.moneda)} / mes</span>
         </div>
       </div>
 
       <div class="result-grid">
         <div class="stat-card"><span class="stat-label">Precio base</span><span class="stat-value">${formatearMoneda(desglose.precioBaseCiclo, config.moneda)}</span></div>
+        <div class="stat-card"><span class="stat-label">Costo mensual estimado</span><span class="stat-value">${formatearMoneda(costoMensualEstimado, config.moneda)}</span></div>
         <div class="stat-card"><span class="stat-label">Costo promedio por PDV</span><span class="stat-value">${formatearMoneda(costoPromedioPorPdv, config.moneda)}</span></div>
         <div class="stat-card stat-card-margin"><span class="stat-label">Margen de ganancia (${desglose.margenPercent}%)</span><span class="stat-value">${formatearMoneda(desglose.margenComercial, config.moneda)}</span></div>
       </div>
@@ -1077,6 +1175,8 @@ function precargarFormularioDesdeInputs(inputs) {
   attachMilesFormatting(document.getElementById('extraCostManual'));
   document.getElementById('departmentWrapper').style.display =
     (inputs.zone === 'interior' || inputs.zone === 'granAsuncion') ? 'block' : 'none';
+  document.getElementById('zoneSplitWrapper').style.display =
+    inputs.zone === 'combinada' ? 'block' : 'none';
   document.getElementById('auditorsCountWrapper').style.display =
     inputs.auditorsMode === 'manual' ? 'block' : 'none';
 }
@@ -1190,6 +1290,9 @@ function rellenarFormularioConfigGeneral(config) {
   f.margenComercialPercent.value = config.margenComercialPercent;
   f.ivaPercent.value = config.ivaPercent;
   f.descuentoMaximoPercent.value = config.descuentoMaximoPercent;
+  f.horasPorVisitaPdv.value = config.horasPorVisitaPdv;
+  f.aguinaldoPercent.value = config.aguinaldoPercent;
+  f.ipsPatronalPercent.value = config.ipsPatronalPercent;
 }
 
 function guardarConfigGeneral() {
@@ -1205,6 +1308,9 @@ function guardarConfigGeneral() {
     margenComercialPercent: Number(f.margenComercialPercent.value),
     ivaPercent: Number(f.ivaPercent.value),
     descuentoMaximoPercent: Number(f.descuentoMaximoPercent.value),
+    horasPorVisitaPdv: Number(f.horasPorVisitaPdv.value),
+    aguinaldoPercent: Number(f.aguinaldoPercent.value),
+    ipsPatronalPercent: Number(f.ipsPatronalPercent.value),
   };
 
   CAMPOS_MONEDA_CONFIG.forEach((campo) => {
@@ -1214,7 +1320,8 @@ function guardarConfigGeneral() {
   const camposNumericos = [
     ...CAMPOS_MONEDA_CONFIG, 'surchargeGranAsuncionPercent',
     'surchargeInteriorPercent', 'pdvPerAuditor', 'margenComercialPercent',
-    'ivaPercent', 'descuentoMaximoPercent',
+    'ivaPercent', 'descuentoMaximoPercent', 'horasPorVisitaPdv',
+    'aguinaldoPercent', 'ipsPatronalPercent',
   ];
   const negativos = camposNumericos.filter((c) => nuevaConfig[c] < 0);
   if (negativos.length) {
@@ -1292,7 +1399,7 @@ function renderHistorial() {
   });
 
   const tbody = document.getElementById('tablaHistorialBody');
-  const zonaLabel = { asuncion: 'Asunción', granAsuncion: 'Gran Asunción', interior: 'Interior' };
+  const zonaLabel = ZONA_LABELS;
 
   if (filtrado.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8" class="muted">No hay cotizaciones que coincidan con la búsqueda.</td></tr>';
@@ -1394,6 +1501,8 @@ function cargarCotizacionEnFormulario(record) {
   });
   document.getElementById('departmentWrapper').style.display =
     (inputs.zone === 'interior' || inputs.zone === 'granAsuncion') ? 'block' : 'none';
+  document.getElementById('zoneSplitWrapper').style.display =
+    inputs.zone === 'combinada' ? 'block' : 'none';
   document.getElementById('auditorsCountWrapper').style.display =
     inputs.auditorsMode === 'manual' ? 'block' : 'none';
 
@@ -1431,8 +1540,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function construirHtmlPreview(resultado, config, numero, tipo) {
-  const { inputs, desglose, ciclos, totalProductos, totalVisitas } = resultado;
-  const zonaLabel = { asuncion: 'Asunción', granAsuncion: 'Gran Asunción', interior: 'Interior' }[inputs.zone] || inputs.zone;
+  const { inputs, desglose, ciclos, totalProductos, totalVisitas, costoMensualEstimado } = resultado;
+  const zonaLabel = ZONA_LABELS[inputs.zone] || inputs.zone;
+  const detalleZonaCombinada = inputs.zone === 'combinada'
+    ? ` (Asunción: ${inputs.pdvAsuncion || 0} · Gran Asunción: ${inputs.pdvGranAsuncion || 0} · Interior: ${inputs.pdvInterior || 0})`
+    : '';
 
   const filasInternas = tipo === 'interno' ? `
     <tr><td>Margen de ganancia (${desglose.margenPercent}%)</td><td>${formatearMoneda(desglose.margenComercial, config.moneda)}</td></tr>
@@ -1454,7 +1566,7 @@ function construirHtmlPreview(resultado, config, numero, tipo) {
           <tr><td>Cantidad de PDV</td><td>${inputs.pdvCount}</td></tr>
           <tr><td>Productos por PDV</td><td>${inputs.productsPerPdv}</td></tr>
           <tr><td>Total de productos a auditar</td><td>${totalProductos.toLocaleString('es-PY')}</td></tr>
-          <tr><td>Zona</td><td>${zonaLabel}${inputs.department ? ' - ' + inputs.department : ''}</td></tr>
+          <tr><td>Zona</td><td>${zonaLabel}${inputs.department ? ' - ' + inputs.department : ''}${detalleZonaCombinada}</td></tr>
           <tr><td>Visitas totales</td><td>${totalVisitas}</td></tr>
           <tr><td>Duración</td><td>${inputs.durationMonths} mes(es)</td></tr>
         </tbody>
@@ -1470,6 +1582,7 @@ function construirHtmlPreview(resultado, config, numero, tipo) {
           <tr><td>Descuento (${desglose.descuentoPercent}%)</td><td>- ${formatearMoneda(desglose.montoDescuento, config.moneda)}</td></tr>
           <tr><td>IVA (${desglose.ivaPercent}%)</td><td>${formatearMoneda(desglose.montoIva, config.moneda)}</td></tr>
           <tr class="total-row"><td>TOTAL ESTIMADO</td><td>${formatearMoneda(desglose.total, config.moneda)}</td></tr>
+          <tr><td>Costo mensual estimado (promedio)</td><td>${formatearMoneda(costoMensualEstimado, config.moneda)}</td></tr>
         </tbody>
       </table>
 
@@ -1488,7 +1601,7 @@ function generarPdf(resultado, config, numero, tipo) {
   }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const { inputs, desglose, ciclos, totalProductos, totalVisitas } = resultado;
+  const { inputs, desglose, ciclos, totalProductos, totalVisitas, costoMensualEstimado } = resultado;
   const margin = 40;
   let y = margin;
   const lineHeight = 16;
@@ -1518,7 +1631,10 @@ function generarPdf(resultado, config, numero, tipo) {
     y += lineHeight;
   }
 
-  const zonaLabel = { asuncion: 'Asunción', granAsuncion: 'Gran Asunción', interior: 'Interior' }[inputs.zone] || inputs.zone;
+  const zonaLabel = ZONA_LABELS[inputs.zone] || inputs.zone;
+  const detalleZonaCombinada = inputs.zone === 'combinada'
+    ? ` (Asu: ${inputs.pdvAsuncion || 0} / G.Asu: ${inputs.pdvGranAsuncion || 0} / Int: ${inputs.pdvInterior || 0})`
+    : '';
 
   addLine('Cotización de Servicios de Auditoría en PDV', { size: 16, bold: true, lh: 24 });
   addLine(`N° ${numero}  ·  Fecha: ${inputs.quoteDate}${inputs.validity ? '  ·  Vigencia: ' + inputs.validity + ' días' : ''}`, { size: 10, lh: 22 });
@@ -1534,7 +1650,7 @@ function generarPdf(resultado, config, numero, tipo) {
   addRow('Cantidad de PDV', String(inputs.pdvCount));
   addRow('Productos por PDV', String(inputs.productsPerPdv));
   addRow('Total de productos a auditar', totalProductos.toLocaleString('es-PY'));
-  addRow('Zona', zonaLabel + (inputs.department ? ' - ' + inputs.department : ''));
+  addRow('Zona', zonaLabel + (inputs.department ? ' - ' + inputs.department : '') + detalleZonaCombinada);
   addRow('Visitas totales', String(totalVisitas));
   addRow('Duración', `${inputs.durationMonths} mes(es) (${ciclos} ciclos)`);
   addRow('Auditores requeridos', String(desglose.cantidadAuditores));
@@ -1545,8 +1661,9 @@ function generarPdf(resultado, config, numero, tipo) {
   addRow('Recargo productos adicionales (por ciclo)', formatearMoneda(desglose.recargoProductosCiclo, config.moneda));
   addRow('Recargo visitas adicionales (por ciclo)', formatearMoneda(desglose.recargoVisitasCiclo, config.moneda));
   addRow(`Subtotal recurrente (x${ciclos})`, formatearMoneda(desglose.subtotalRecurrente, config.moneda));
-  addRow(`Recargo de zona (${desglose.porcentajeZona}%)`, formatearMoneda(desglose.recargoZona, config.moneda));
+  addRow(`Recargo de zona (${desglose.porcentajeZona.toFixed(2)}%)`, formatearMoneda(desglose.recargoZona, config.moneda));
   addRow('Costos operativos y servicios adicionales', formatearMoneda(desglose.subtotalOperativo, config.moneda));
+  addRow('  (incluye mano de obra: ' + desglose.horasHombreTotales.toLocaleString('es-PY') + ' horas)', formatearMoneda(desglose.costoManoDeObra, config.moneda));
 
   if (tipo === 'interno') {
     addRow(`Margen de ganancia (${desglose.margenPercent}%)`, formatearMoneda(desglose.margenComercial, config.moneda));
@@ -1560,6 +1677,7 @@ function generarPdf(resultado, config, numero, tipo) {
   doc.line(margin, y, pageWidth - margin, y);
   y += 18;
   addLine(`TOTAL ESTIMADO: ${formatearMoneda(desglose.total, config.moneda)}`, { bold: true, size: 13, lh: 20 });
+  addLine(`Costo mensual estimado (promedio): ${formatearMoneda(costoMensualEstimado, config.moneda)}`, { size: 10, lh: 16 });
 
   y += 10;
   doc.setFontSize(8);

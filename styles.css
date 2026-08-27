@@ -333,6 +333,7 @@ textarea { resize: vertical; }
 
 .total-label { display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.04em; }
 .total-value { display: block; font-size: 1.5rem; font-weight: 700; color: var(--color-accent); margin-top: 2px; }
+.total-secondary { display: block; font-size: 0.78rem; color: rgba(255,255,255,0.75); margin-top: 4px; }
 
 .result-grid {
   display: grid;
