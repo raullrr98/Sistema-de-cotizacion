@@ -64,32 +64,32 @@
           <legend>Datos del cliente</legend>
 
           <div class="form-field">
-            <label for="clientName">Nombre del cliente o empresa *</label>
+            <label for="clientName">Nombre del cliente o empresa * <button type="button" class="info-icon" data-info="clientName" aria-label="Información">i</button></label>
             <input type="text" id="clientName" name="clientName" required>
           </div>
 
           <div class="form-field">
-            <label for="contactName">Nombre del contacto</label>
+            <label for="contactName">Nombre del contacto <button type="button" class="info-icon" data-info="contactName" aria-label="Información">i</button></label>
             <input type="text" id="contactName" name="contactName">
           </div>
 
           <div class="form-field">
-            <label for="quoteDate">Fecha de cotización *</label>
+            <label for="quoteDate">Fecha de cotización * <button type="button" class="info-icon" data-info="quoteDate" aria-label="Información">i</button></label>
             <input type="date" id="quoteDate" name="quoteDate" required>
           </div>
 
           <div class="form-field">
-            <label for="projectName">Nombre del proyecto o campaña</label>
+            <label for="projectName">Nombre del proyecto o campaña <button type="button" class="info-icon" data-info="projectName" aria-label="Información">i</button></label>
             <input type="text" id="projectName" name="projectName">
           </div>
 
           <div class="form-field">
-            <label for="validity">Vigencia de la cotización (días)</label>
+            <label for="validity">Vigencia de la cotización (días) <button type="button" class="info-icon" data-info="validity" aria-label="Información">i</button></label>
             <input type="number" id="validity" name="validity" min="1" value="15">
           </div>
 
           <div class="form-field form-field-full">
-            <label for="notes">Observaciones</label>
+            <label for="notes">Observaciones <button type="button" class="info-icon" data-info="notes" aria-label="Información">i</button></label>
             <textarea id="notes" name="notes" rows="2"></textarea>
           </div>
         </fieldset>
@@ -98,29 +98,29 @@
           <legend>Datos del servicio</legend>
 
           <div class="form-field">
-            <label for="serviceType">Tipo de servicio</label>
+            <label for="serviceType">Tipo de servicio <button type="button" class="info-icon" data-info="serviceType" aria-label="Información">i</button></label>
             <select id="serviceType" name="serviceType">
               <option value="Auditoría en punto de venta">Auditoría en punto de venta</option>
             </select>
           </div>
 
           <div class="form-field">
-            <label for="pdvCount">Cantidad de puntos de venta (PDV) *</label>
+            <label for="pdvCount">Cantidad de puntos de venta (PDV) * <button type="button" class="info-icon" data-info="pdvCount" aria-label="Información">i</button></label>
             <input type="number" id="pdvCount" name="pdvCount" min="1" required>
           </div>
 
           <div class="form-field">
-            <label for="productsPerPdv">Productos aproximados por PDV *</label>
+            <label for="productsPerPdv">Productos aproximados por PDV * <button type="button" class="info-icon" data-info="productsPerPdv" aria-label="Información">i</button></label>
             <input type="number" id="productsPerPdv" name="productsPerPdv" min="0" required>
           </div>
 
           <div class="form-field">
-            <label for="visitsPerPdv">Visitas por PDV (por ciclo) *</label>
+            <label for="visitsPerPdv">Visitas por PDV (por ciclo) * <button type="button" class="info-icon" data-info="visitsPerPdv" aria-label="Información">i</button></label>
             <input type="number" id="visitsPerPdv" name="visitsPerPdv" min="1" value="1" required>
           </div>
 
           <div class="form-field">
-            <label for="frequency">Frecuencia *</label>
+            <label for="frequency">Frecuencia * <button type="button" class="info-icon" data-info="frequency" aria-label="Información">i</button></label>
             <select id="frequency" name="frequency" required>
               <option value="unica">Única</option>
               <option value="semanal">Semanal</option>
@@ -130,12 +130,12 @@
           </div>
 
           <div class="form-field">
-            <label for="durationMonths">Duración del proyecto (meses) *</label>
+            <label for="durationMonths">Duración del proyecto (meses) * <button type="button" class="info-icon" data-info="durationMonths" aria-label="Información">i</button></label>
             <input type="number" id="durationMonths" name="durationMonths" min="1" value="1" required>
           </div>
 
           <div class="form-field">
-            <label for="zone">Zona *</label>
+            <label for="zone">Zona * <button type="button" class="info-icon" data-info="zone" aria-label="Información">i</button></label>
             <select id="zone" name="zone" required>
               <option value="asuncion">Asunción</option>
               <option value="granAsuncion">Gran Asunción</option>
@@ -144,12 +144,12 @@
           </div>
 
           <div class="form-field" id="departmentWrapper" style="display:none;">
-            <label for="department">Departamento o ciudad</label>
+            <label for="department">Departamento o ciudad <button type="button" class="info-icon" data-info="department" aria-label="Información">i</button></label>
             <input type="text" id="department" name="department" placeholder="Ej: Ciudad del Este, Alto Paraná">
           </div>
 
           <div class="form-field">
-            <label for="auditorsMode">Cantidad de auditores</label>
+            <label for="auditorsMode">Cantidad de auditores <button type="button" class="info-icon" data-info="auditorsMode" aria-label="Información">i</button></label>
             <select id="auditorsMode" name="auditorsMode">
               <option value="auto">Automático (según cantidad de PDV)</option>
               <option value="manual">Manual</option>
@@ -157,7 +157,7 @@
           </div>
 
           <div class="form-field" id="auditorsCountWrapper" style="display:none;">
-            <label for="auditorsCount">Cantidad de auditores (manual)</label>
+            <label for="auditorsCount">Cantidad de auditores (manual) <button type="button" class="info-icon" data-info="auditorsCount" aria-label="Información">i</button></label>
             <input type="number" id="auditorsCount" name="auditorsCount" min="1">
           </div>
         </fieldset>
@@ -165,13 +165,13 @@
         <fieldset class="form-section">
           <legend>Servicios adicionales</legend>
           <div class="checkbox-grid">
-            <label class="checkbox-item"><input type="checkbox" name="requiresTraslado"> Requiere traslado</label>
-            <label class="checkbox-item"><input type="checkbox" name="requiresAlojamiento"> Requiere alojamiento</label>
-            <label class="checkbox-item"><input type="checkbox" name="requiresViaticos"> Requiere viáticos</label>
-            <label class="checkbox-item"><input type="checkbox" name="requiresFotografia"> Evidencia fotográfica</label>
-            <label class="checkbox-item"><input type="checkbox" name="requiresInforme"> Informe final</label>
-            <label class="checkbox-item"><input type="checkbox" name="requiresDashboard"> Dashboard de resultados</label>
-            <label class="checkbox-item"><input type="checkbox" name="requiresPresentacion"> Presentación de resultados</label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresTraslado"> Requiere traslado <button type="button" class="info-icon" data-info="requiresTraslado" aria-label="Información">i</button></label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresAlojamiento"> Requiere alojamiento <button type="button" class="info-icon" data-info="requiresAlojamiento" aria-label="Información">i</button></label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresViaticos"> Requiere viáticos <button type="button" class="info-icon" data-info="requiresViaticos" aria-label="Información">i</button></label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresFotografia"> Evidencia fotográfica <button type="button" class="info-icon" data-info="requiresFotografia" aria-label="Información">i</button></label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresInforme"> Informe final <button type="button" class="info-icon" data-info="requiresInforme" aria-label="Información">i</button></label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresDashboard"> Dashboard de resultados <button type="button" class="info-icon" data-info="requiresDashboard" aria-label="Información">i</button></label>
+            <label class="checkbox-item"><input type="checkbox" name="requiresPresentacion"> Presentación de resultados <button type="button" class="info-icon" data-info="requiresPresentacion" aria-label="Información">i</button></label>
           </div>
         </fieldset>
 
@@ -179,17 +179,17 @@
           <legend>Ajustes comerciales</legend>
 
           <div class="form-field">
-            <label for="discountPercent">Descuento (%)</label>
+            <label for="discountPercent">Descuento (%) <button type="button" class="info-icon" data-info="discountPercent" aria-label="Información">i</button></label>
             <input type="number" id="discountPercent" name="discountPercent" min="0" step="0.5" value="0">
           </div>
 
           <div class="form-field">
-            <label for="extraCostManual">Costo adicional manual (Gs.)</label>
+            <label for="extraCostManual">Costo adicional manual (Gs.) <button type="button" class="info-icon" data-info="extraCostManual" aria-label="Información">i</button></label>
             <input type="text" id="extraCostManual" name="extraCostManual" inputmode="numeric" value="0">
           </div>
 
           <div class="form-field form-field-full">
-            <label for="extraCostReason">Motivo del costo adicional</label>
+            <label for="extraCostReason">Motivo del costo adicional <button type="button" class="info-icon" data-info="extraCostReason" aria-label="Información">i</button></label>
             <input type="text" id="extraCostReason" name="extraCostReason" placeholder="Ej: Requerimiento especial del cliente">
           </div>
         </fieldset>
@@ -216,22 +216,22 @@
             <legend>Datos mínimos</legend>
 
             <div class="form-field">
-              <label for="rapidoCliente">Cliente (opcional)</label>
+              <label for="rapidoCliente">Cliente (opcional) <button type="button" class="info-icon" data-info="rapidoCliente" aria-label="Información">i</button></label>
               <input type="text" id="rapidoCliente" placeholder="Nombre del cliente">
             </div>
 
             <div class="form-field">
-              <label for="rapidoPdvCount">Cantidad de PDV *</label>
+              <label for="rapidoPdvCount">Cantidad de PDV * <button type="button" class="info-icon" data-info="rapidoPdvCount" aria-label="Información">i</button></label>
               <input type="number" id="rapidoPdvCount" min="1">
             </div>
 
             <div class="form-field">
-              <label for="rapidoProductsPerPdv">Productos por PDV</label>
+              <label for="rapidoProductsPerPdv">Productos por PDV <button type="button" class="info-icon" data-info="rapidoProductsPerPdv" aria-label="Información">i</button></label>
               <input type="number" id="rapidoProductsPerPdv" min="0" value="0">
             </div>
 
             <div class="form-field">
-              <label for="rapidoZone">Zona</label>
+              <label for="rapidoZone">Zona <button type="button" class="info-icon" data-info="rapidoZone" aria-label="Información">i</button></label>
               <select id="rapidoZone">
                 <option value="asuncion">Asunción</option>
                 <option value="granAsuncion">Gran Asunción</option>
@@ -240,17 +240,17 @@
             </div>
 
             <div class="form-field" id="rapidoDepartmentWrapper" style="display:none;">
-              <label for="rapidoDepartment">Departamento o ciudad</label>
+              <label for="rapidoDepartment">Departamento o ciudad <button type="button" class="info-icon" data-info="rapidoDepartment" aria-label="Información">i</button></label>
               <input type="text" id="rapidoDepartment" placeholder="Ej: Encarnación">
             </div>
 
             <div class="form-field">
-              <label for="rapidoVisitsPerPdv">Visitas por PDV</label>
+              <label for="rapidoVisitsPerPdv">Visitas por PDV <button type="button" class="info-icon" data-info="rapidoVisitsPerPdv" aria-label="Información">i</button></label>
               <input type="number" id="rapidoVisitsPerPdv" min="1" value="1">
             </div>
 
             <div class="form-field">
-              <label for="rapidoFrequency">Frecuencia</label>
+              <label for="rapidoFrequency">Frecuencia <button type="button" class="info-icon" data-info="rapidoFrequency" aria-label="Información">i</button></label>
               <select id="rapidoFrequency">
                 <option value="unica" selected>Única</option>
                 <option value="semanal">Semanal</option>
@@ -260,7 +260,7 @@
             </div>
 
             <div class="form-field">
-              <label for="rapidoDurationMonths">Duración (meses)</label>
+              <label for="rapidoDurationMonths">Duración (meses) <button type="button" class="info-icon" data-info="rapidoDurationMonths" aria-label="Información">i</button></label>
               <input type="number" id="rapidoDurationMonths" min="1" value="1">
             </div>
           </fieldset>
@@ -338,10 +338,10 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>PDV mínimo</th>
-                <th>PDV máximo</th>
-                <th>Productos incluidos</th>
-                <th>Precio base (Gs.)</th>
+                <th>PDV mínimo <button type="button" class="info-icon" data-info="escalaMin" aria-label="Información">i</button></th>
+                <th>PDV máximo <button type="button" class="info-icon" data-info="escalaMax" aria-label="Información">i</button></th>
+                <th>Productos incluidos <button type="button" class="info-icon" data-info="escalaProductos" aria-label="Información">i</button></th>
+                <th>Precio base (Gs.) <button type="button" class="info-icon" data-info="escalaPrecio" aria-label="Información">i</button></th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -358,7 +358,7 @@
         <fieldset class="form-section">
           <legend>Modalidad de cálculo</legend>
           <div class="form-field">
-            <label for="pricingMode">Modo de precio entre escalas</label>
+            <label for="pricingMode">Modo de precio entre escalas <button type="button" class="info-icon" data-info="pricingMode" aria-label="Información">i</button></label>
             <select id="pricingMode" name="pricingMode">
               <option value="cerrado">Precio cerrado por escala</option>
               <option value="progresivo">Precio progresivo (interpolado)</option>
@@ -374,7 +374,7 @@
             por producto adicional.
           </p>
           <div class="form-field">
-            <label for="extraProductSurcharge">Recargo por producto adicional (Gs.)</label>
+            <label for="extraProductSurcharge">Recargo por producto adicional (Gs.) <button type="button" class="info-icon" data-info="extraProductSurcharge" aria-label="Información">i</button></label>
             <input type="text" id="extraProductSurcharge" name="extraProductSurcharge" inputmode="numeric">
           </div>
         </fieldset>
@@ -382,11 +382,11 @@
         <fieldset class="form-section">
           <legend>Zona</legend>
           <div class="form-field">
-            <label for="surchargeGranAsuncionPercent">Recargo Gran Asunción (%)</label>
+            <label for="surchargeGranAsuncionPercent">Recargo Gran Asunción (%) <button type="button" class="info-icon" data-info="surchargeGranAsuncionPercent" aria-label="Información">i</button></label>
             <input type="number" id="surchargeGranAsuncionPercent" name="surchargeGranAsuncionPercent" min="0" step="0.5">
           </div>
           <div class="form-field">
-            <label for="surchargeInteriorPercent">Recargo Interior (%)</label>
+            <label for="surchargeInteriorPercent">Recargo Interior (%) <button type="button" class="info-icon" data-info="surchargeInteriorPercent" aria-label="Información">i</button></label>
             <input type="number" id="surchargeInteriorPercent" name="surchargeInteriorPercent" min="0" step="0.5">
           </div>
         </fieldset>
@@ -394,23 +394,23 @@
         <fieldset class="form-section">
           <legend>Auditores y operación</legend>
           <div class="form-field">
-            <label for="pdvPerAuditor">PDV cubiertos por auditor (modo automático)</label>
+            <label for="pdvPerAuditor">PDV cubiertos por auditor (modo automático) <button type="button" class="info-icon" data-info="pdvPerAuditor" aria-label="Información">i</button></label>
             <input type="number" id="pdvPerAuditor" name="pdvPerAuditor" min="1">
           </div>
           <div class="form-field">
-            <label for="costoTraslado">Costo de traslado (Gs. por auditor, por viaje)</label>
+            <label for="costoTraslado">Costo de traslado (Gs. por auditor, por viaje) <button type="button" class="info-icon" data-info="costoTraslado" aria-label="Información">i</button></label>
             <input type="text" id="costoTraslado" name="costoTraslado" inputmode="numeric">
           </div>
           <div class="form-field">
-            <label for="viaticoPorAuditorPorDia">Viático por auditor, por día (Gs.)</label>
+            <label for="viaticoPorAuditorPorDia">Viático por auditor, por día (Gs.) <button type="button" class="info-icon" data-info="viaticoPorAuditorPorDia" aria-label="Información">i</button></label>
             <input type="text" id="viaticoPorAuditorPorDia" name="viaticoPorAuditorPorDia" inputmode="numeric">
           </div>
           <div class="form-field">
-            <label for="alojamientoPorAuditorPorNoche">Alojamiento por auditor, por noche (Gs.)</label>
+            <label for="alojamientoPorAuditorPorNoche">Alojamiento por auditor, por noche (Gs.) <button type="button" class="info-icon" data-info="alojamientoPorAuditorPorNoche" aria-label="Información">i</button></label>
             <input type="text" id="alojamientoPorAuditorPorNoche" name="alojamientoPorAuditorPorNoche" inputmode="numeric">
           </div>
           <div class="form-field">
-            <label for="costoVisitaAdicional">Costo por visita adicional (Gs. por PDV)</label>
+            <label for="costoVisitaAdicional">Costo por visita adicional (Gs. por PDV) <button type="button" class="info-icon" data-info="costoVisitaAdicional" aria-label="Información">i</button></label>
             <input type="text" id="costoVisitaAdicional" name="costoVisitaAdicional" inputmode="numeric">
           </div>
         </fieldset>
@@ -418,19 +418,19 @@
         <fieldset class="form-section">
           <legend>Servicios adicionales (cargo único)</legend>
           <div class="form-field">
-            <label for="costoEvidenciaFotografica">Evidencia fotográfica (Gs.)</label>
+            <label for="costoEvidenciaFotografica">Evidencia fotográfica (Gs.) <button type="button" class="info-icon" data-info="costoEvidenciaFotografica" aria-label="Información">i</button></label>
             <input type="text" id="costoEvidenciaFotografica" name="costoEvidenciaFotografica" inputmode="numeric">
           </div>
           <div class="form-field">
-            <label for="costoInformeFinal">Informe final (Gs.)</label>
+            <label for="costoInformeFinal">Informe final (Gs.) <button type="button" class="info-icon" data-info="costoInformeFinal" aria-label="Información">i</button></label>
             <input type="text" id="costoInformeFinal" name="costoInformeFinal" inputmode="numeric">
           </div>
           <div class="form-field">
-            <label for="costoDashboard">Dashboard (Gs.)</label>
+            <label for="costoDashboard">Dashboard (Gs.) <button type="button" class="info-icon" data-info="costoDashboard" aria-label="Información">i</button></label>
             <input type="text" id="costoDashboard" name="costoDashboard" inputmode="numeric">
           </div>
           <div class="form-field">
-            <label for="costoPresentacion">Presentación de resultados (Gs.)</label>
+            <label for="costoPresentacion">Presentación de resultados (Gs.) <button type="button" class="info-icon" data-info="costoPresentacion" aria-label="Información">i</button></label>
             <input type="text" id="costoPresentacion" name="costoPresentacion" inputmode="numeric">
           </div>
         </fieldset>
@@ -438,15 +438,15 @@
         <fieldset class="form-section">
           <legend>Comercial</legend>
           <div class="form-field">
-            <label for="margenComercialPercent">Margen de ganancia (%)</label>
+            <label for="margenComercialPercent">Margen de ganancia (%) <button type="button" class="info-icon" data-info="margenComercialPercent" aria-label="Información">i</button></label>
             <input type="number" id="margenComercialPercent" name="margenComercialPercent" min="0" step="0.5">
           </div>
           <div class="form-field">
-            <label for="ivaPercent">IVA (%)</label>
+            <label for="ivaPercent">IVA (%) <button type="button" class="info-icon" data-info="ivaPercent" aria-label="Información">i</button></label>
             <input type="number" id="ivaPercent" name="ivaPercent" min="0" step="0.5">
           </div>
           <div class="form-field">
-            <label for="descuentoMaximoPercent">Descuento máximo permitido (%)</label>
+            <label for="descuentoMaximoPercent">Descuento máximo permitido (%) <button type="button" class="info-icon" data-info="descuentoMaximoPercent" aria-label="Información">i</button></label>
             <input type="number" id="descuentoMaximoPercent" name="descuentoMaximoPercent" min="0" step="0.5">
           </div>
         </fieldset>

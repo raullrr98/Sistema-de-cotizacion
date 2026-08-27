@@ -493,6 +493,158 @@ function validarEscalas(scales) {
 }
 
 /* ==========================================================================
+   3B. AYUDA CONTEXTUAL (ICONOS "i")
+   --------------------------------------------------------------------------
+   Textos explicativos que se muestran al hacer clic en el icono "i" junto
+   a cada campo, para que cualquier persona que use el sistema entienda
+   exactamente qué significa el valor y cómo se aplica en el cálculo.
+   ========================================================================== */
+
+const INFO_TEXTS = {
+  // --- Nueva cotización: Datos del cliente ---
+  clientName: 'Nombre del cliente o empresa que recibe la cotización. Aparece en el documento final, en el PDF y en el historial.',
+  contactName: 'Nombre de la persona de contacto en la empresa del cliente (opcional). Es solo informativo: no afecta el cálculo del precio.',
+  quoteDate: 'Fecha en la que se emite la cotización. Se usa para el historial y como referencia para calcular la vigencia.',
+  projectName: 'Nombre interno del proyecto o campaña (opcional). Sirve para identificar la cotización más fácilmente en el historial.',
+  validity: 'Cantidad de días que la cotización es válida desde la fecha de emisión. Es solo informativo: el sistema no la vence automáticamente; el estado se cambia manualmente en el historial.',
+  notes: 'Cualquier observación adicional que quiera dejar registrada en la cotización. No afecta el cálculo del precio.',
+
+  // --- Nueva cotización: Datos del servicio ---
+  serviceType: 'Tipo de servicio cotizado. Por el momento el sistema solo maneja "Auditoría en punto de venta".',
+  pdvCount: 'Cantidad total de puntos de venta (locales/sucursales) a auditar. Es el dato principal: define automáticamente qué escala de precio se usa (ver "Escalas de precio" en Configuración).',
+  productsPerPdv: 'Cantidad aproximada de productos que se van a relevar EN CADA PDV (no el total). Si este número supera la cantidad de "Productos incluidos" de la escala correspondiente, se cobra un recargo por CADA producto que se pase, multiplicado por la cantidad de PDV.',
+  visitsPerPdv: 'Cantidad de visitas que se realizan a CADA PDV dentro de un mismo ciclo (por ejemplo, dentro de un mes si la frecuencia es mensual). La primera visita ya está incluida en el precio base; desde la segunda en adelante se cobra el "Costo por visita adicional" configurado.',
+  frequency: 'Con qué periodicidad se repite el servicio. "Única" = una sola vez. Semanal/Quincenal/Mensual se repiten durante toda la "Duración del proyecto". Junto con la duración, define la cantidad de "ciclos" de cobro.',
+  durationMonths: 'Cantidad de meses que dura el proyecto. Combinado con la frecuencia, determina la cantidad de ciclos de cobro. Ejemplo: frecuencia mensual x 3 meses = 3 ciclos completos.',
+  zone: 'Ubicación general de los PDV. "Asunción" no tiene recargo. "Gran Asunción" e "Interior" suman el porcentaje de recargo de zona configurado en Configuración de costos.',
+  department: 'Departamento o ciudad específica (por ejemplo, dentro de Gran Asunción o Interior). Es solo informativo: no cambia el precio, solo aparece en el documento.',
+  auditorsMode: '"Automático": el sistema calcula la cantidad de auditores dividiendo la cantidad de PDV entre la capacidad configurada en "PDV cubiertos por auditor" (Configuración). "Manual": usted define la cantidad exacta de auditores.',
+  auditorsCount: 'Cantidad exacta de auditores a asignar (solo si eligió el modo "Manual"). Este número se usa para calcular el costo de traslado, viáticos y alojamiento si están marcados.',
+
+  // --- Nueva cotización: Servicios adicionales ---
+  requiresTraslado: 'Si se marca, se suma el "Costo de traslado" configurado, multiplicado por la cantidad de auditores y por la cantidad de ciclos del proyecto (se asume 1 viaje por ciclo).',
+  requiresAlojamiento: 'Si se marca, se suma el costo de "Alojamiento por auditor, por noche" configurado, multiplicado por la cantidad de auditores y de ciclos (se asume 1 noche por ciclo).',
+  requiresViaticos: 'Si se marca, se suma el "Viático por auditor, por día" configurado, multiplicado por la cantidad de auditores y de ciclos (se asume 1 día por ciclo).',
+  requiresFotografia: 'Si se marca, se suma UNA SOLA VEZ el costo de "Evidencia fotográfica" configurado. Es un cargo único: no se multiplica por PDV ni por ciclos.',
+  requiresInforme: 'Si se marca, se suma UNA SOLA VEZ el costo de "Informe final" configurado. Es un cargo único, no se repite.',
+  requiresDashboard: 'Si se marca, se suma UNA SOLA VEZ el costo de "Dashboard" configurado. Es un cargo único, no se repite.',
+  requiresPresentacion: 'Si se marca, se suma UNA SOLA VEZ el costo de "Presentación de resultados" configurado. Es un cargo único, no se repite.',
+
+  // --- Nueva cotización: Ajustes comerciales ---
+  discountPercent: 'Porcentaje de descuento que se aplica sobre el subtotal con margen ya incluido. No puede superar el "Descuento máximo permitido" definido en Configuración de costos: si ingresa un valor mayor, el sistema lo recorta automáticamente.',
+  extraCostManual: 'Monto en guaraníes que se suma manualmente SOLO a esta cotización puntual (por ejemplo, un requerimiento especial del cliente). Si carga un valor mayor a 0, es obligatorio explicar el motivo.',
+  extraCostReason: 'Explicación breve del motivo del costo adicional manual. Es obligatoria únicamente si el "Costo adicional manual" es mayor a 0.',
+
+  // --- Cálculo rápido ---
+  rapidoCliente: 'Nombre del cliente (opcional). Si lo completa, se transfiere al formulario de "Nueva cotización" al presionar "Usar estos datos".',
+  rapidoPdvCount: 'Cantidad de puntos de venta a auditar. Es el único dato obligatorio para poder calcular un estimado rápido.',
+  rapidoProductsPerPdv: 'Cantidad aproximada de productos por cada PDV. Si supera lo incluido en la escala correspondiente, se recarga por cada producto adicional (igual que en la cotización completa).',
+  rapidoZone: 'Ubicación de los PDV. Gran Asunción e Interior aplican el recargo de zona configurado.',
+  rapidoDepartment: 'Departamento o ciudad específica. Solo informativo.',
+  rapidoVisitsPerPdv: 'Cantidad de visitas a cada PDV por ciclo. La primera está incluida; desde la segunda se cobra el costo de visita adicional.',
+  rapidoFrequency: 'Periodicidad del servicio. En el cálculo rápido, por defecto se deja en "Única" para simplificar la estimación.',
+  rapidoDurationMonths: 'Cantidad de meses del proyecto. Junto con la frecuencia define la cantidad de ciclos de cobro.',
+
+  // --- Configuración: Escalas de precio ---
+  escalaMin: 'Cantidad MÍNIMA de PDV que entra en este rango (el valor es incluido). Por ejemplo, si el mínimo es 11, un cliente con 11 PDV ya entra en esta escala.',
+  escalaMax: 'Cantidad MÁXIMA de PDV que entra en este rango (el valor es incluido). Si una cotización pide más PDV que el máximo de la ÚLTIMA escala, el sistema muestra "cotización personalizada" y calcula un valor orientativo.',
+  escalaProductos: 'Cantidad de productos POR PDV que YA ESTÁN INCLUIDOS en el precio base de ESTA escala puntual. Si el cliente pide más productos por PDV que este número, se cobra el "Recargo por producto adicional" (configurado más abajo) por cada unidad que se pase.',
+  escalaPrecio: 'Precio total que se cobra por esta escala completa, por UN ciclo de visita, antes de recargos, margen de ganancia, descuento e IVA. Se muestra y se escribe con separador de miles (ej: 10.000.000).',
+  pricingMode: '"Cerrado por escala": todo el rango cobra el mismo precio fijo (ej: 11 y 15 PDV pagan lo mismo). "Progresivo (interpolado)": el precio sube de forma gradual a medida que aumentan los PDV dentro del rango, en vez de saltar de golpe entre una escala y la siguiente.',
+
+  // --- Configuración: Productos ---
+  extraProductSurcharge: 'Monto que se cobra POR CADA PRODUCTO adicional (uno por uno, no por lote de 10 ni de 100) que supere la cantidad de "Productos incluidos" de la escala correspondiente. Se multiplica por la cantidad de PDV y se cobra en cada ciclo. Ejemplo: escala con 50 productos incluidos, cliente pide 60 en 10 PDV, recargo Gs. 5.000 → (60-50) × Gs. 5.000 × 10 PDV = Gs. 500.000 por ciclo.',
+
+  // --- Configuración: Zona ---
+  surchargeGranAsuncionPercent: 'Porcentaje que se suma sobre el subtotal recurrente (precio base + recargos por ciclo) cuando la zona elegida en la cotización es "Gran Asunción".',
+  surchargeInteriorPercent: 'Porcentaje que se suma sobre el subtotal recurrente cuando la zona elegida en la cotización es "Interior". Suele ser mayor que el de Gran Asunción por la distancia.',
+
+  // --- Configuración: Auditores y operación ---
+  pdvPerAuditor: 'Cantidad de PDV que puede cubrir 1 solo auditor. Se usa únicamente cuando la cotización tiene el modo de auditores en "Automático": cantidad de auditores = PDV ÷ este número (redondeado siempre hacia arriba).',
+  costoTraslado: 'Costo de traslado por CADA auditor, por CADA viaje (se asume 1 viaje por ciclo). Se multiplica por la cantidad de auditores y por la cantidad de ciclos del proyecto. Solo se cobra si en la cotización se marca "Requiere traslado".',
+  viaticoPorAuditorPorDia: 'Viático por CADA auditor, por CADA día (se asume 1 día por ciclo). Se multiplica por la cantidad de auditores y de ciclos. Solo se cobra si se marca "Requiere viáticos".',
+  alojamientoPorAuditorPorNoche: 'Costo de alojamiento por CADA auditor, por CADA noche (se asume 1 noche por ciclo). Se multiplica por auditores y ciclos. Solo se cobra si se marca "Requiere alojamiento".',
+  costoVisitaAdicional: 'Costo por CADA visita adicional a un mismo PDV dentro de un ciclo (la primera visita ya está incluida en el precio base). Se multiplica por la cantidad de PDV. Ejemplo: si se piden 3 visitas por PDV, se cobran 2 visitas adicionales por cada PDV.',
+
+  // --- Configuración: Servicios adicionales (cargo único) ---
+  costoEvidenciaFotografica: 'Cargo ÚNICO (no se repite por PDV ni por ciclo) que se suma si la cotización marca "Evidencia fotográfica".',
+  costoInformeFinal: 'Cargo único que se suma si la cotización marca "Informe final". No se multiplica por PDV ni por ciclos.',
+  costoDashboard: 'Cargo único que se suma si la cotización marca "Dashboard de resultados". No se multiplica por PDV ni por ciclos.',
+  costoPresentacion: 'Cargo único que se suma si la cotización marca "Presentación de resultados". No se multiplica por PDV ni por ciclos.',
+
+  // --- Configuración: Comercial ---
+  margenComercialPercent: 'Porcentaje de ganancia que se agrega sobre el subtotal de costos (antes del descuento y el IVA). Es la utilidad de la empresa: se muestra en el desglose interno y en el PDF interno, pero NUNCA en la versión para el cliente.',
+  ivaPercent: 'Porcentaje de IVA que se aplica sobre el subtotal final, después de aplicar el descuento.',
+  descuentoMaximoPercent: 'Porcentaje máximo de descuento que se puede aplicar en una cotización. Si en "Nueva cotización" se ingresa un descuento mayor a este valor, el sistema lo recorta automáticamente.',
+};
+
+let currentPopoverEl = null;
+
+function closeInfoPopover() {
+  if (currentPopoverEl) {
+    if (currentPopoverEl._icon) currentPopoverEl._icon.classList.remove('info-icon-active');
+    currentPopoverEl.remove();
+    currentPopoverEl = null;
+  }
+}
+
+function abrirInfoPopover(icon) {
+  const key = icon.getAttribute('data-info');
+  const texto = INFO_TEXTS[key] || 'No hay información adicional para este campo.';
+
+  const pop = document.createElement('div');
+  pop.className = 'info-popover';
+  pop.textContent = texto;
+  document.body.appendChild(pop);
+
+  const rect = icon.getBoundingClientRect();
+  const popWidth = Math.min(300, window.innerWidth - 32);
+  let left = rect.left;
+  if (left + popWidth > window.innerWidth - 16) left = window.innerWidth - popWidth - 16;
+  if (left < 16) left = 16;
+
+  // Medir alto real del popover para decidir si va arriba o abajo del icono
+  const popHeight = pop.getBoundingClientRect().height;
+  let top = rect.bottom + 10;
+  if (top + popHeight > window.innerHeight - 16) {
+    top = rect.top - popHeight - 10;
+    pop.classList.add('popover-arrow-bottom');
+  }
+  if (top < 8) top = 8;
+
+  pop.style.width = popWidth + 'px';
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+
+  icon.classList.add('info-icon-active');
+  pop._icon = icon;
+  currentPopoverEl = pop;
+}
+
+function initInfoTooltips() {
+  document.body.addEventListener('click', (e) => {
+    const icon = e.target.closest('.info-icon');
+    if (icon) {
+      e.preventDefault();
+      e.stopPropagation();
+      const wasThisOpen = icon.classList.contains('info-icon-active');
+      closeInfoPopover();
+      if (!wasThisOpen) abrirInfoPopover(icon);
+      return;
+    }
+    if (e.target.closest('.info-popover')) return; // clic dentro del popover no lo cierra
+    closeInfoPopover();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeInfoPopover();
+  });
+
+  window.addEventListener('scroll', closeInfoPopover, true);
+  window.addEventListener('resize', closeInfoPopover);
+}
+
+/* ==========================================================================
    4. UI - NAVEGACION
    ========================================================================== */
 
@@ -1429,6 +1581,7 @@ function generarPdf(resultado, config, numero, tipo) {
 document.addEventListener('DOMContentLoaded', () => {
   getConfig(); // asegura que exista configuración en localStorage
   initNavegacion();
+  initInfoTooltips();
   initFormularioCotizacion();
   initCalculoRapido();
   initConfiguracion();
