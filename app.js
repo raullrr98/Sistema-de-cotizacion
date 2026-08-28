@@ -632,16 +632,16 @@ function validarFormularioCotizacion(inputs) {
     const aseguradoras = Number(inputs.msAseguradorasCount) || 0;
     const sucursales = Number(inputs.msSucursalesPresencial) || 0;
     if (aseguradoras < 0) {
-      errores.push('La cantidad de aseguradoras a monitorear no puede ser negativa.');
+      errores.push('La cantidad de empresas a monitorear no puede ser negativa.');
     }
     if (sucursales < 0) {
       errores.push('La cantidad de sucursales a visitar no puede ser negativa.');
     }
     if (aseguradoras === 0 && sucursales === 0) {
-      errores.push('Debe indicar al menos una aseguradora a monitorear o una sucursal a visitar.');
+      errores.push('Debe indicar al menos una empresa a monitorear o una sucursal a visitar.');
     }
     if (!inputs.msCanalesRemotos || Number(inputs.msCanalesRemotos) < 0) {
-      errores.push('La cantidad de canales remotos por aseguradora no es válida.');
+      errores.push('La cantidad de canales remotos por empresa monitoreada no es válida.');
     }
     if (!inputs.msRondas || Number(inputs.msRondas) <= 0) {
       errores.push('La cantidad de rondas de relevamiento debe ser mayor que cero.');
@@ -748,7 +748,7 @@ const INFO_TEXTS = {
   notes: 'Cualquier observación adicional que quiera dejar registrada en la cotización. No afecta el cálculo del precio.',
 
   // --- Nueva cotización: Datos del servicio ---
-  serviceType: 'Tipo de servicio a cotizar. Según lo que elija, el formulario cambia para pedirle los datos correctos: "Auditoría en punto de venta" (PDV, productos, zona, etc.) o "Mystery Shopper" (aseguradoras, sucursales, canales remotos, etc.).',
+  serviceType: 'Tipo de servicio a cotizar. Según lo que elija, el formulario cambia para pedirle los datos correctos: "Auditoría en punto de venta" (PDV, productos, zona, etc.) o "Mystery Shopper" (empresas a monitorear, sucursales, canales remotos, etc.).',
   pdvCount: 'Cantidad total de puntos de venta (locales/sucursales) a auditar. Es el dato principal: define automáticamente qué escala de precio se usa (ver "Escalas de precio" en Configuración).',
   productsPerPdv: 'Cantidad aproximada de productos que se van a relevar EN CADA PDV (no el total). Si este número supera la cantidad de "Productos incluidos" de la escala correspondiente, se cobra un recargo por CADA producto que se pase, multiplicado por la cantidad de PDV.',
   visitsPerPdv: 'Cantidad de visitas que se realizan a CADA PDV dentro de un mismo ciclo (por ejemplo, dentro de un mes si la frecuencia es mensual). La primera visita ya está incluida en el precio base; desde la segunda en adelante se cobra el "Costo por visita adicional" configurado.',
@@ -763,9 +763,9 @@ const INFO_TEXTS = {
   auditorsCount: 'Cantidad exacta de auditores a asignar (solo si eligió el modo "Manual"). Este número se usa para calcular el costo de traslado, viáticos y alojamiento si están marcados.',
 
   // --- Nueva cotización: Mystery Shopper (alcance) ---
-  msAseguradorasCount: 'Cantidad de aseguradoras de la competencia a monitorear. Este número se usa para calcular las interacciones y el costo de los canales remotos (WhatsApp, Redes Sociales, Web).',
+  msAseguradorasCount: 'Cantidad de empresas de la competencia a monitorear (pueden ser aseguradoras, bancos, cadenas de retail, restaurantes, o cualquier tipo de negocio). Este número se usa para calcular las interacciones y el costo de los canales remotos (WhatsApp, Redes Sociales, Web).',
   msSucursalesPresencial: 'Cantidad de sucursales a visitar en persona (trabajo de campo, dentro de Asunción). Si no requiere visitas presenciales, deje este valor en 0.',
-  msCanalesRemotos: 'Cantidad de canales remotos a monitorear por cada aseguradora (por ejemplo: WhatsApp + Redes Sociales + Web = 3). Se multiplica por la cantidad de aseguradoras y de rondas para calcular las interacciones totales.',
+  msCanalesRemotos: 'Cantidad de canales remotos a monitorear por cada empresa (por ejemplo: WhatsApp + Redes Sociales + Web = 3). Se multiplica por la cantidad de empresas y de rondas para calcular las interacciones totales.',
   msRondas: 'Cantidad de veces que se repite todo el relevamiento (presencial y remoto). 1 = una sola medición; 2 o más = repetir para controlar variabilidad en el tiempo.',
   msPlazoDeseadoDias: 'Cantidad de días hábiles en los que se desea completar el trabajo de campo presencial. A menor plazo, se necesitan más mystery shoppers trabajando en simultáneo.',
 
@@ -841,7 +841,7 @@ const INFO_TEXTS = {
   msJornadaEfectivaHorasDia: 'Cantidad de horas efectivas de trabajo de campo que tiene un mystery shopper por día, descontando almuerzo y tiempos muertos. Se usa para calcular cuántas visitas puede hacer una persona por día y cuántos shoppers se necesitan para cumplir el plazo deseado.',
 
   // --- Configuración: Mystery Shopper — Canales remotos ---
-  msTiempoGestionInteraccionHoras: 'Horas que toma gestionar UNA interacción por canal remoto (WhatsApp, Redes o Web): contacto + seguimiento + registro. No incluye el tiempo de espera de la respuesta de la aseguradora.',
+  msTiempoGestionInteraccionHoras: 'Horas que toma gestionar UNA interacción por canal remoto (WhatsApp, Redes o Web): contacto + seguimiento + registro. No incluye el tiempo de espera de la respuesta de la empresa monitoreada.',
 
   // --- Configuración: Mystery Shopper — Coordinación y análisis ---
   msHorasDisenoGuion: 'Horas dedicadas a diseñar el guion de la interacción y hacer el briefing a los mystery shoppers. Es una tarea única del proyecto, no se repite por visita ni por interacción.',
@@ -1190,9 +1190,9 @@ function construirCuerpoResultadoMysteryShopper(resultado, config) {
         <div class="result-block">
           <h3>Alcance del servicio</h3>
           <dl>
-            <dt>Aseguradoras a monitorear</dt><dd>${inputs.msAseguradorasCount || 0}</dd>
+            <dt>Empresas a monitorear</dt><dd>${inputs.msAseguradorasCount || 0}</dd>
             <dt>Sucursales a visitar (presencial)</dt><dd>${inputs.msSucursalesPresencial || 0}</dd>
-            <dt>Canales remotos por aseguradora</dt><dd>${inputs.msCanalesRemotos || 0}</dd>
+            <dt>Canales remotos por empresa</dt><dd>${inputs.msCanalesRemotos || 0}</dd>
             <dt>Rondas de relevamiento</dt><dd>${inputs.msRondas || 1}</dd>
             <dt>Plazo deseado</dt><dd>${inputs.msPlazoDeseadoDias || 0} días hábiles</dd>
             <dt>Visitas presenciales totales</dt><dd>${totalVisitas}</dd>
@@ -1219,7 +1219,7 @@ function construirCuerpoResultadoMysteryShopper(resultado, config) {
             <tr><td>Viáticos totales (movilidad, solo Asunción)</td><td>${formatearMoneda(desglose.viaticosTotales, config.moneda)}</td></tr>
 
             <tr><td colspan="2"><strong>C. Canales remotos (WhatsApp / Redes / Web)</strong></td></tr>
-            <tr><td>Interacciones totales (aseguradoras × canales × rondas)</td><td>${desglose.interaccionesTotales}</td></tr>
+            <tr><td>Interacciones totales (empresas × canales × rondas)</td><td>${desglose.interaccionesTotales}</td></tr>
             <tr><td>Horas-hombre totales — gestión remota</td><td>${desglose.horasHombreRemoto.toLocaleString('es-PY')} horas</td></tr>
             <tr><td>Costo mano de obra — canales remotos</td><td>${formatearMoneda(desglose.costoRemotoManoObra, config.moneda)}</td></tr>
 
@@ -1245,7 +1245,7 @@ function construirCuerpoResultadoMysteryShopper(resultado, config) {
       <div class="result-grid">
         <div class="stat-card"><span class="stat-label">Dotación de campo (shoppers)</span><span class="stat-value">${desglose.shoppersNecesarios} persona(s)</span></div>
         <div class="stat-card"><span class="stat-label">Costo promedio por sucursal</span><span class="stat-value">${formatearMoneda(costoPromedioPorSucursal, config.moneda)}</span></div>
-        <div class="stat-card"><span class="stat-label">Costo promedio por aseguradora</span><span class="stat-value">${formatearMoneda(costoPromedioPorAseguradora, config.moneda)}</span></div>
+        <div class="stat-card"><span class="stat-label">Costo promedio por empresa monitoreada</span><span class="stat-value">${formatearMoneda(costoPromedioPorAseguradora, config.moneda)}</span></div>
         <div class="stat-card stat-card-margin"><span class="stat-label">Margen de ganancia (${desglose.margenPercent}%)</span><span class="stat-value">${formatearMoneda(desglose.margenComercial, config.moneda)}</span></div>
       </div>
   `;
@@ -1338,7 +1338,7 @@ function guardarCotizacionEnHistorial(resultado, numeroPreview) {
   }
 
   const alcance = esMS
-    ? `${inputs.msAseguradorasCount || 0} aseg. · ${inputs.msSucursalesPresencial || 0} suc.`
+    ? `${inputs.msAseguradorasCount || 0} emp. · ${inputs.msSucursalesPresencial || 0} suc.`
     : `${inputs.pdvCount} PDV`;
 
   const record = {
@@ -1975,9 +1975,9 @@ function construirHtmlPreviewMysteryShopper(resultado, config, numero, tipo) {
       <table class="breakdown-table">
         <tbody>
           <tr><td>Tipo de servicio</td><td>${SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType}</td></tr>
-          <tr><td>Aseguradoras a monitorear</td><td>${inputs.msAseguradorasCount || 0}</td></tr>
+          <tr><td>Empresas a monitorear</td><td>${inputs.msAseguradorasCount || 0}</td></tr>
           <tr><td>Sucursales a visitar (presencial)</td><td>${inputs.msSucursalesPresencial || 0}</td></tr>
-          <tr><td>Canales remotos por aseguradora</td><td>${inputs.msCanalesRemotos || 0}</td></tr>
+          <tr><td>Canales remotos por empresa</td><td>${inputs.msCanalesRemotos || 0}</td></tr>
           <tr><td>Rondas de relevamiento</td><td>${inputs.msRondas || 1}</td></tr>
           <tr><td>Plazo deseado</td><td>${inputs.msPlazoDeseadoDias || 0} días hábiles</td></tr>
           <tr><td>Visitas presenciales totales</td><td>${totalVisitas}</td></tr>
@@ -2129,9 +2129,9 @@ function generarCuerpoPdfMysteryShopper(ctx, resultado, config, numero, tipo) {
 
   addLine('ALCANCE DEL SERVICIO', { bold: true, size: 12, lh: 18 });
   addRow('Tipo de servicio', SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType);
-  addRow('Aseguradoras a monitorear', String(inputs.msAseguradorasCount || 0));
+  addRow('Empresas a monitorear', String(inputs.msAseguradorasCount || 0));
   addRow('Sucursales a visitar (presencial)', String(inputs.msSucursalesPresencial || 0));
-  addRow('Canales remotos por aseguradora', String(inputs.msCanalesRemotos || 0));
+  addRow('Canales remotos por empresa', String(inputs.msCanalesRemotos || 0));
   addRow('Rondas de relevamiento', String(inputs.msRondas || 1));
   addRow('Plazo deseado', `${inputs.msPlazoDeseadoDias || 0} días hábiles`);
   addRow('Visitas presenciales totales', String(totalVisitas));
