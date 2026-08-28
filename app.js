@@ -78,6 +78,18 @@ function getDefaultConfig() {
     aguinaldoPercent: 8.33, // % legal del aguinaldo (equivalente a 1/12 del salario)
     ipsPatronalPercent: 16.5, // % de aporte patronal al IPS
 
+    // --- Mystery Shopper (VALORES DE EJEMPLO, basados en costeo de referencia) ---
+    msTrasladoPorVisitaHoras: 0.5, // horas de traslado ida y vuelta, por visita presencial
+    msEsperaInteraccionHoras: 0.5, // horas de espera + interacción con el asesor, por visita
+    msCargaInformeHoras: 0.25, // horas de carga de informe/evidencia, por visita
+    msJornadaEfectivaHorasDia: 6, // horas efectivas de campo por día, por shopper
+    msTiempoGestionInteraccionHoras: 0.4, // horas de gestión por interacción remota (WhatsApp/Redes/Web)
+    msHorasDisenoGuion: 6, // horas de diseño de guion y briefing (tarea única, no por visita)
+    msHorasAnalisisInforme: 8, // horas de análisis y armado de informe final (tarea única)
+    msCostoHoraShopper: 22000, // Gs. por hora de trabajo del mystery shopper / relevador
+    msCostoHoraAnalista: 48000, // Gs. por hora de trabajo del analista / coordinador
+    msViaticoPorVisita: 35000, // Gs. de viático de movilidad, por visita presencial
+
     moneda: 'PYG',
   };
 }
@@ -249,11 +261,152 @@ function obtenerPrecioBasePorPDV(pdvCount, config) {
 }
 
 /**
- * Calcula la cotización completa. Recibe los datos del formulario (inputs)
- * y la configuración de costos (config). Devuelve un objeto con todo el
- * desglose necesario para mostrar el resultado y generar el PDF.
+ * Calcula la cotización completa de un servicio de Mystery Shopper,
+ * replicando exactamente la lógica del modelo de costeo de referencia:
+ *   A. Trabajo de campo presencial (visitas a sucursales)
+ *   B. Viáticos de movilidad
+ *   C. Canales remotos (WhatsApp / Redes / Web)
+ *   D. Coordinación y análisis (diseño de guion + informe final)
+ *   E. Resumen: mano de obra + viáticos, margen, descuento e IVA
+ */
+function calcularMysteryShopper(inputs, config) {
+  const aseguradoras = Number(inputs.msAseguradorasCount) || 0;
+  const sucursales = Number(inputs.msSucursalesPresencial) || 0;
+  const canalesRemotos = Number(inputs.msCanalesRemotos) || 0;
+  const rondas = Math.max(1, Number(inputs.msRondas) || 1);
+  const plazoDeseadoDias = Math.max(1, Number(inputs.msPlazoDeseadoDias) || 1);
+
+  // --- A. Trabajo de campo presencial ---
+  const trasladoHoras = Number(config.msTrasladoPorVisitaHoras) || 0;
+  const esperaHoras = Number(config.msEsperaInteraccionHoras) || 0;
+  const cargaInformeHoras = Number(config.msCargaInformeHoras) || 0;
+  const horasPorVisita = trasladoHoras + esperaHoras + cargaInformeHoras;
+
+  const visitasTotales = sucursales * rondas;
+  const horasHombreCampo = visitasTotales * horasPorVisita;
+
+  const jornadaEfectiva = Number(config.msJornadaEfectivaHorasDia) || 0;
+  const visitasPorDiaPorShopper = horasPorVisita > 0 ? Math.floor(jornadaEfectiva / horasPorVisita) : 0;
+  const diasNecesariosConUnaPersona = visitasPorDiaPorShopper > 0
+    ? Math.ceil(visitasTotales / visitasPorDiaPorShopper)
+    : (visitasTotales > 0 ? visitasTotales : 0);
+  const shoppersNecesarios = diasNecesariosConUnaPersona > 0
+    ? Math.ceil(diasNecesariosConUnaPersona / plazoDeseadoDias)
+    : 0;
+
+  const costoHoraShopper = Number(config.msCostoHoraShopper) || 0;
+  const costoCampoManoObra = horasHombreCampo * costoHoraShopper;
+
+  // --- B. Viáticos ---
+  const viaticoPorVisita = Number(config.msViaticoPorVisita) || 0;
+  const viaticosTotales = visitasTotales * viaticoPorVisita;
+
+  // --- C. Canales remotos ---
+  const interaccionesTotales = aseguradoras * canalesRemotos * rondas;
+  const tiempoGestionHoras = Number(config.msTiempoGestionInteraccionHoras) || 0;
+  const horasHombreRemoto = interaccionesTotales * tiempoGestionHoras;
+  const costoRemotoManoObra = horasHombreRemoto * costoHoraShopper;
+
+  // --- D. Coordinación y análisis ---
+  const horasDisenoGuion = Number(config.msHorasDisenoGuion) || 0;
+  const horasAnalisisInforme = Number(config.msHorasAnalisisInforme) || 0;
+  const horasCoordinacion = horasDisenoGuion + horasAnalisisInforme;
+  const costoHoraAnalista = Number(config.msCostoHoraAnalista) || 0;
+  const costoCoordinacion = horasCoordinacion * costoHoraAnalista;
+
+  // --- E. Resumen y total ---
+  const subtotalManoObra = costoCampoManoObra + costoRemotoManoObra + costoCoordinacion;
+  const subtotalGeneral = subtotalManoObra + viaticosTotales;
+
+  const costoAdicionalManual = Number(inputs.extraCostManual) || 0;
+  const subtotalAntesMargen = subtotalGeneral + costoAdicionalManual;
+
+  const margenPercent = Number(config.margenComercialPercent) || 0;
+  const margenComercial = subtotalAntesMargen * (margenPercent / 100);
+  const subtotalConMargen = subtotalAntesMargen + margenComercial;
+
+  const descuentoMax = Number(config.descuentoMaximoPercent) || 0;
+  let descuentoPercent = Number(inputs.discountPercent) || 0;
+  if (descuentoPercent > descuentoMax) descuentoPercent = descuentoMax;
+  if (descuentoPercent < 0) descuentoPercent = 0;
+  const montoDescuento = subtotalConMargen * (descuentoPercent / 100);
+  const subtotalConDescuento = subtotalConMargen - montoDescuento;
+
+  const ivaPercent = Number(config.ivaPercent) || 0;
+  const montoIva = subtotalConDescuento * (ivaPercent / 100);
+
+  const total = subtotalConDescuento + montoIva;
+
+  return {
+    inputs,
+    isCustom: false,
+    desglose: {
+      horasPorVisita,
+      visitasTotales,
+      horasHombreCampo,
+      visitasPorDiaPorShopper,
+      diasNecesariosConUnaPersona,
+      shoppersNecesarios,
+      costoCampoManoObra,
+      viaticosTotales,
+      interaccionesTotales,
+      horasHombreRemoto,
+      costoRemotoManoObra,
+      horasCoordinacion,
+      costoCoordinacion,
+      subtotalManoObra,
+      subtotalGeneral,
+      costoAdicionalManual,
+      subtotalAntesMargen,
+      margenPercent,
+      margenComercial,
+      subtotalConMargen,
+      descuentoPercent,
+      montoDescuento,
+      subtotalConDescuento,
+      ivaPercent,
+      montoIva,
+      total,
+    },
+    totalVisitas: visitasTotales,
+    totalInteracciones: interaccionesTotales,
+    costoMensualEstimado: total, // proyecto puntual: no tiene recurrencia mensual
+    costoPromedioPorSucursal: sucursales > 0 ? total / sucursales : 0,
+    costoPromedioPorAseguradora: aseguradoras > 0 ? total / aseguradoras : 0,
+  };
+}
+
+// Etiquetas legibles de cada tipo de servicio (se usan en toda la aplicación).
+const SERVICE_TYPE_LABELS = {
+  auditoria: 'Auditoría en punto de venta',
+  mysteryShopper: 'Mystery Shopper',
+};
+
+/** Determina si una cotización corresponde al servicio de Mystery Shopper. */
+function esMysteryShopper(inputs) {
+  return inputs.serviceType === 'mysteryShopper';
+}
+
+/**
+ * Punto de entrada único para calcular cualquier tipo de cotización.
+ * Deriva al motor de cálculo correspondiente según el tipo de servicio.
+ * Cualquier valor antiguo o desconocido (incluida la cadena literal que
+ * usaban versiones anteriores) cae por defecto en "Auditoría en PDV".
  */
 function calcularCotizacion(inputs, config) {
+  if (esMysteryShopper(inputs)) {
+    return calcularMysteryShopper(inputs, config);
+  }
+  return calcularAuditoriaPDV(inputs, config);
+}
+
+/**
+ * Calcula la cotización completa de una Auditoría en PDV. Recibe los datos
+ * del formulario (inputs) y la configuración de costos (config). Devuelve
+ * un objeto con todo el desglose necesario para mostrar el resultado y
+ * generar el PDF.
+ */
+function calcularAuditoriaPDV(inputs, config) {
   const pdv = Number(inputs.pdvCount) || 0;
   const productosPorPdv = Number(inputs.productsPerPdv) || 0;
   const visitasPorPdv = Number(inputs.visitsPerPdv) || 1;
@@ -461,6 +614,7 @@ const CAMPOS_MONEDA_CONFIG = [
   'extraProductSurcharge', 'costoTraslado', 'viaticoPorAuditorPorDia',
   'alojamientoPorAuditorPorNoche', 'costoVisitaAdicional', 'costoEvidenciaFotografica',
   'costoInformeFinal', 'costoDashboard', 'costoPresentacion', 'costoPorHoraHombre',
+  'msCostoHoraShopper', 'msCostoHoraAnalista', 'msViaticoPorVisita',
 ];
 
 function validarFormularioCotizacion(inputs) {
@@ -472,36 +626,63 @@ function validarFormularioCotizacion(inputs) {
   if (!inputs.quoteDate) {
     errores.push('La fecha de cotización es obligatoria.');
   }
-  if (!inputs.pdvCount || Number(inputs.pdvCount) <= 0) {
-    errores.push('La cantidad de puntos de venta (PDV) debe ser mayor que cero.');
-  }
-  if (inputs.productsPerPdv === '' || Number(inputs.productsPerPdv) < 0) {
-    errores.push('La cantidad de productos por PDV no es válida.');
-  }
-  if (!inputs.visitsPerPdv || Number(inputs.visitsPerPdv) <= 0) {
-    errores.push('La cantidad de visitas por PDV debe ser mayor que cero.');
-  }
-  if (!inputs.durationMonths || Number(inputs.durationMonths) <= 0) {
-    errores.push('La duración del proyecto debe ser mayor que cero.');
-  }
-  if (!inputs.zone) {
-    errores.push('Debe seleccionar una zona.');
-  }
-  if (inputs.zone === 'interior' && (!inputs.department || inputs.department.trim() === '')) {
-    errores.push('Debe indicar el departamento o ciudad para la zona Interior.');
-  }
-  if (inputs.zone === 'combinada') {
-    const pAsuncion = Number(inputs.pdvAsuncion) || 0;
-    const pGranAsuncion = Number(inputs.pdvGranAsuncion) || 0;
-    const pInterior = Number(inputs.pdvInterior) || 0;
-    const sumaZonas = pAsuncion + pGranAsuncion + pInterior;
-    if (sumaZonas !== Number(inputs.pdvCount)) {
-      errores.push(`La suma de PDV por zona (${sumaZonas}) debe ser igual a la cantidad total de PDV (${inputs.pdvCount}).`);
+
+  if (esMysteryShopper(inputs)) {
+    // --- Validaciones específicas de Mystery Shopper ---
+    const aseguradoras = Number(inputs.msAseguradorasCount) || 0;
+    const sucursales = Number(inputs.msSucursalesPresencial) || 0;
+    if (aseguradoras < 0) {
+      errores.push('La cantidad de aseguradoras a monitorear no puede ser negativa.');
+    }
+    if (sucursales < 0) {
+      errores.push('La cantidad de sucursales a visitar no puede ser negativa.');
+    }
+    if (aseguradoras === 0 && sucursales === 0) {
+      errores.push('Debe indicar al menos una aseguradora a monitorear o una sucursal a visitar.');
+    }
+    if (!inputs.msCanalesRemotos || Number(inputs.msCanalesRemotos) < 0) {
+      errores.push('La cantidad de canales remotos por aseguradora no es válida.');
+    }
+    if (!inputs.msRondas || Number(inputs.msRondas) <= 0) {
+      errores.push('La cantidad de rondas de relevamiento debe ser mayor que cero.');
+    }
+    if (!inputs.msPlazoDeseadoDias || Number(inputs.msPlazoDeseadoDias) <= 0) {
+      errores.push('El plazo deseado (días hábiles) debe ser mayor que cero.');
+    }
+  } else {
+    // --- Validaciones específicas de Auditoría en PDV ---
+    if (!inputs.pdvCount || Number(inputs.pdvCount) <= 0) {
+      errores.push('La cantidad de puntos de venta (PDV) debe ser mayor que cero.');
+    }
+    if (inputs.productsPerPdv === '' || Number(inputs.productsPerPdv) < 0) {
+      errores.push('La cantidad de productos por PDV no es válida.');
+    }
+    if (!inputs.visitsPerPdv || Number(inputs.visitsPerPdv) <= 0) {
+      errores.push('La cantidad de visitas por PDV debe ser mayor que cero.');
+    }
+    if (!inputs.durationMonths || Number(inputs.durationMonths) <= 0) {
+      errores.push('La duración del proyecto debe ser mayor que cero.');
+    }
+    if (!inputs.zone) {
+      errores.push('Debe seleccionar una zona.');
+    }
+    if (inputs.zone === 'interior' && (!inputs.department || inputs.department.trim() === '')) {
+      errores.push('Debe indicar el departamento o ciudad para la zona Interior.');
+    }
+    if (inputs.zone === 'combinada') {
+      const pAsuncion = Number(inputs.pdvAsuncion) || 0;
+      const pGranAsuncion = Number(inputs.pdvGranAsuncion) || 0;
+      const pInterior = Number(inputs.pdvInterior) || 0;
+      const sumaZonas = pAsuncion + pGranAsuncion + pInterior;
+      if (sumaZonas !== Number(inputs.pdvCount)) {
+        errores.push(`La suma de PDV por zona (${sumaZonas}) debe ser igual a la cantidad total de PDV (${inputs.pdvCount}).`);
+      }
+    }
+    if (inputs.auditorsMode === 'manual' && (!inputs.auditorsCount || Number(inputs.auditorsCount) <= 0)) {
+      errores.push('Debe indicar una cantidad de auditores válida en modo manual.');
     }
   }
-  if (inputs.auditorsMode === 'manual' && (!inputs.auditorsCount || Number(inputs.auditorsCount) <= 0)) {
-    errores.push('Debe indicar una cantidad de auditores válida en modo manual.');
-  }
+
   if (Number(inputs.discountPercent) < 0) {
     errores.push('El descuento no puede ser negativo.');
   }
@@ -567,7 +748,7 @@ const INFO_TEXTS = {
   notes: 'Cualquier observación adicional que quiera dejar registrada en la cotización. No afecta el cálculo del precio.',
 
   // --- Nueva cotización: Datos del servicio ---
-  serviceType: 'Tipo de servicio cotizado. Por el momento el sistema solo maneja "Auditoría en punto de venta".',
+  serviceType: 'Tipo de servicio a cotizar. Según lo que elija, el formulario cambia para pedirle los datos correctos: "Auditoría en punto de venta" (PDV, productos, zona, etc.) o "Mystery Shopper" (aseguradoras, sucursales, canales remotos, etc.).',
   pdvCount: 'Cantidad total de puntos de venta (locales/sucursales) a auditar. Es el dato principal: define automáticamente qué escala de precio se usa (ver "Escalas de precio" en Configuración).',
   productsPerPdv: 'Cantidad aproximada de productos que se van a relevar EN CADA PDV (no el total). Si este número supera la cantidad de "Productos incluidos" de la escala correspondiente, se cobra un recargo por CADA producto que se pase, multiplicado por la cantidad de PDV.',
   visitsPerPdv: 'Cantidad de visitas que se realizan a CADA PDV dentro de un mismo ciclo (por ejemplo, dentro de un mes si la frecuencia es mensual). La primera visita ya está incluida en el precio base; desde la segunda en adelante se cobra el "Costo por visita adicional" configurado.',
@@ -580,6 +761,13 @@ const INFO_TEXTS = {
   pdvInterior: 'Cantidad de PDV ubicados en el Interior del país. Se les aplica el recargo de zona configurado para Interior. La suma de los 3 campos debe ser igual al total de PDV.',
   auditorsMode: '"Automático": el sistema calcula la cantidad de auditores dividiendo la cantidad de PDV entre la capacidad configurada en "PDV cubiertos por auditor" (Configuración). "Manual": usted define la cantidad exacta de auditores.',
   auditorsCount: 'Cantidad exacta de auditores a asignar (solo si eligió el modo "Manual"). Este número se usa para calcular el costo de traslado, viáticos y alojamiento si están marcados.',
+
+  // --- Nueva cotización: Mystery Shopper (alcance) ---
+  msAseguradorasCount: 'Cantidad de aseguradoras de la competencia a monitorear. Este número se usa para calcular las interacciones y el costo de los canales remotos (WhatsApp, Redes Sociales, Web).',
+  msSucursalesPresencial: 'Cantidad de sucursales a visitar en persona (trabajo de campo, dentro de Asunción). Si no requiere visitas presenciales, deje este valor en 0.',
+  msCanalesRemotos: 'Cantidad de canales remotos a monitorear por cada aseguradora (por ejemplo: WhatsApp + Redes Sociales + Web = 3). Se multiplica por la cantidad de aseguradoras y de rondas para calcular las interacciones totales.',
+  msRondas: 'Cantidad de veces que se repite todo el relevamiento (presencial y remoto). 1 = una sola medición; 2 o más = repetir para controlar variabilidad en el tiempo.',
+  msPlazoDeseadoDias: 'Cantidad de días hábiles en los que se desea completar el trabajo de campo presencial. A menor plazo, se necesitan más mystery shoppers trabajando en simultáneo.',
 
   // --- Nueva cotización: Servicios adicionales ---
   requiresTraslado: 'Si se marca, se suma el "Costo de traslado" configurado, multiplicado por la cantidad de auditores y por la cantidad de ciclos del proyecto (se asume 1 viaje por ciclo).',
@@ -645,6 +833,24 @@ const INFO_TEXTS = {
   horasPorVisitaPdv: 'Cantidad de horas que un auditor dedica, en promedio, a UNA visita a UN PDV. Se multiplica por la cantidad total de visitas del proyecto (PDV × visitas × ciclos) para obtener las horas-hombre totales.',
   aguinaldoPercent: 'Porcentaje que representa el aguinaldo (13er sueldo) sobre el costo de la hora hombre. Por ley equivale a 1/12 del salario, es decir, aproximadamente 8.33%. Se suma al costo por hora para reflejar el costo laboral real.',
   ipsPatronalPercent: 'Porcentaje de aporte patronal al IPS (Instituto de Previsión Social) sobre el costo de la hora hombre. Se suma al costo por hora, junto con el aguinaldo, para calcular el costo real de la mano de obra que se incluye en cada cotización.',
+
+  // --- Configuración: Mystery Shopper — Trabajo de campo ---
+  msTrasladoPorVisitaHoras: 'Horas que un mystery shopper dedica a trasladarse (ida y vuelta) entre puntos, por cada visita presencial. Junto con "Espera + interacción" y "Carga de informe" forman las horas totales por visita.',
+  msEsperaInteraccionHoras: 'Horas reales que el mystery shopper pasa dentro de la sucursal: espera en fila + interacción con el asesor.',
+  msCargaInformeHoras: 'Horas que toma cargar el checklist, las fotos y las notas de evidencia después de cada visita presencial.',
+  msJornadaEfectivaHorasDia: 'Cantidad de horas efectivas de trabajo de campo que tiene un mystery shopper por día, descontando almuerzo y tiempos muertos. Se usa para calcular cuántas visitas puede hacer una persona por día y cuántos shoppers se necesitan para cumplir el plazo deseado.',
+
+  // --- Configuración: Mystery Shopper — Canales remotos ---
+  msTiempoGestionInteraccionHoras: 'Horas que toma gestionar UNA interacción por canal remoto (WhatsApp, Redes o Web): contacto + seguimiento + registro. No incluye el tiempo de espera de la respuesta de la aseguradora.',
+
+  // --- Configuración: Mystery Shopper — Coordinación y análisis ---
+  msHorasDisenoGuion: 'Horas dedicadas a diseñar el guion de la interacción y hacer el briefing a los mystery shoppers. Es una tarea única del proyecto, no se repite por visita ni por interacción.',
+  msHorasAnalisisInforme: 'Horas dedicadas a consolidar los resultados, armar la matriz comparativa y redactar el informe ejecutivo final. Es una tarea única del proyecto.',
+
+  // --- Configuración: Mystery Shopper — Costos unitarios ---
+  msCostoHoraShopper: 'Costo por hora de trabajo de CADA mystery shopper/relevador (tanto para las visitas presenciales como para la gestión de canales remotos). No incluye cargas sociales adicionales.',
+  msCostoHoraAnalista: 'Costo por hora de trabajo del analista/coordinador que diseña el guion y arma el informe final. Suele ser un valor más alto que el del mystery shopper, por tratarse de un perfil de análisis.',
+  msViaticoPorVisita: 'Costo de movilidad (viaje corto en auto/taxi dentro de Asunción, ida y vuelta) por CADA visita presencial. No incluye alojamiento ni comida.',
 };
 
 let currentPopoverEl = null;
@@ -758,6 +964,10 @@ function cambiarVista(view) {
 function initFormularioCotizacion() {
   document.getElementById('quoteDate').valueAsDate = new Date();
 
+  document.getElementById('serviceType').addEventListener('change', (e) => {
+    actualizarCamposPorTipoServicio(e.target.value);
+  });
+
   document.getElementById('zone').addEventListener('change', (e) => {
     const showDept = e.target.value === 'interior' || e.target.value === 'granAsuncion';
     const showSplit = e.target.value === 'combinada';
@@ -784,11 +994,24 @@ function initFormularioCotizacion() {
       document.getElementById('resultadoWrapper').innerHTML = '';
       document.getElementById('departmentWrapper').style.display = 'none';
       document.getElementById('zoneSplitWrapper').style.display = 'none';
+      actualizarCamposPorTipoServicio('auditoria');
       attachMilesFormatting(document.getElementById('extraCostManual'));
       APP_STATE.editingQuoteId = null;
       APP_STATE.lastResult = null;
     }
   });
+}
+
+/**
+ * Muestra u oculta los bloques de campos del formulario de cotización según
+ * el tipo de servicio elegido (Auditoría en PDV o Mystery Shopper), ya que
+ * cada servicio pide datos distintos.
+ */
+function actualizarCamposPorTipoServicio(tipo) {
+  const esMS = tipo === 'mysteryShopper';
+  document.getElementById('fieldsetAuditoria').style.display = esMS ? 'none' : '';
+  document.getElementById('fieldsetServiciosAdicionales').style.display = esMS ? 'none' : '';
+  document.getElementById('fieldsetMysteryShopper').style.display = esMS ? '' : 'none';
 }
 
 function leerInputsFormulario() {
@@ -814,6 +1037,12 @@ function leerInputsFormulario() {
     pdvInterior: f.pdvInterior.value,
     auditorsMode: f.auditorsMode.value,
     auditorsCount: f.auditorsCount.value,
+
+    msAseguradorasCount: f.msAseguradorasCount.value,
+    msSucursalesPresencial: f.msSucursalesPresencial.value,
+    msCanalesRemotos: f.msCanalesRemotos.value,
+    msRondas: f.msRondas.value,
+    msPlazoDeseadoDias: f.msPlazoDeseadoDias.value,
 
     requiresTraslado: f.requiresTraslado.checked,
     requiresAlojamiento: f.requiresAlojamiento.checked,
@@ -850,13 +1079,12 @@ function procesarCotizacion() {
   renderResultado(resultado, config);
 }
 
-function renderResultado(resultado, config) {
-  const { inputs, desglose, isCustom, ciclos, totalProductos, totalVisitas, costoPromedioPorPdv, costoPromedioPorVisita, costoMensualEstimado } = resultado;
-  const wrapper = document.getElementById('resultadoWrapper');
-
-  const numeroCotizacion = APP_STATE.editingQuoteId
-    ? (getHistory().find((q) => q.id === APP_STATE.editingQuoteId)?.numero || getNextQuoteNumber())
-    : getNextQuoteNumberPreview();
+/**
+ * Construye el HTML de "Alcance del servicio" + "Desglose del cálculo" +
+ * tarjetas de estadísticas para una cotización de Auditoría en PDV.
+ */
+function construirCuerpoResultadoAuditoria(resultado, config) {
+  const { inputs, desglose, ciclos, totalProductos, totalVisitas, costoPromedioPorPdv, costoPromedioPorVisita, costoMensualEstimado } = resultado;
 
   const serviciosAdicionales = [];
   if (inputs.requiresTraslado) serviciosAdicionales.push('Traslado');
@@ -873,22 +1101,7 @@ function renderResultado(resultado, config) {
     ? ` (Asunción: ${inputs.pdvAsuncion || 0} · Gran Asunción: ${inputs.pdvGranAsuncion || 0} · Interior: ${inputs.pdvInterior || 0})`
     : '';
 
-  wrapper.innerHTML = `
-    <div class="card result-card">
-      <div class="result-header">
-        <div>
-          <h2>Cotización ${numeroCotizacion}</h2>
-          <p class="muted">${inputs.clientName} · ${inputs.projectName || 'Sin nombre de proyecto'}</p>
-        </div>
-        <div class="total-badge">
-          <span class="total-label">Total estimado</span>
-          <span class="total-value">${formatearMoneda(desglose.total, config.moneda)}</span>
-          <span class="total-secondary">≈ ${formatearMoneda(costoMensualEstimado, config.moneda)} / mes</span>
-        </div>
-      </div>
-
-      ${isCustom ? `<div class="alert alert-warning">Este servicio requiere una cotización personalizada. El cálculo mostrado es <strong>estimado y está sujeto a revisión</strong>.</div>` : ''}
-
+  return `
       <div class="result-grid">
         <div class="result-block">
           <h3>Datos del cliente</h3>
@@ -953,6 +1166,121 @@ function renderResultado(resultado, config) {
         <div class="stat-card"><span class="stat-label">Costo promedio por visita</span><span class="stat-value">${formatearMoneda(costoPromedioPorVisita, config.moneda)}</span></div>
         <div class="stat-card stat-card-margin"><span class="stat-label">Margen de ganancia (${desglose.margenPercent}%)</span><span class="stat-value">${formatearMoneda(desglose.margenComercial, config.moneda)}</span></div>
       </div>
+  `;
+}
+
+/**
+ * Construye el HTML de "Alcance del servicio" + "Desglose del cálculo" +
+ * tarjetas de estadísticas para una cotización de Mystery Shopper.
+ */
+function construirCuerpoResultadoMysteryShopper(resultado, config) {
+  const { inputs, desglose, totalVisitas, totalInteracciones, costoPromedioPorSucursal, costoPromedioPorAseguradora } = resultado;
+
+  return `
+      <div class="result-grid">
+        <div class="result-block">
+          <h3>Datos del cliente</h3>
+          <dl>
+            <dt>Cliente</dt><dd>${inputs.clientName}</dd>
+            <dt>Contacto</dt><dd>${inputs.contactName || '-'}</dd>
+            <dt>Fecha</dt><dd>${inputs.quoteDate}</dd>
+            <dt>Vigencia</dt><dd>${inputs.validity ? inputs.validity + ' días' : '-'}</dd>
+          </dl>
+        </div>
+        <div class="result-block">
+          <h3>Alcance del servicio</h3>
+          <dl>
+            <dt>Aseguradoras a monitorear</dt><dd>${inputs.msAseguradorasCount || 0}</dd>
+            <dt>Sucursales a visitar (presencial)</dt><dd>${inputs.msSucursalesPresencial || 0}</dd>
+            <dt>Canales remotos por aseguradora</dt><dd>${inputs.msCanalesRemotos || 0}</dd>
+            <dt>Rondas de relevamiento</dt><dd>${inputs.msRondas || 1}</dd>
+            <dt>Plazo deseado</dt><dd>${inputs.msPlazoDeseadoDias || 0} días hábiles</dd>
+            <dt>Visitas presenciales totales</dt><dd>${totalVisitas}</dd>
+            <dt>Interacciones remotas totales</dt><dd>${totalInteracciones}</dd>
+            <dt>Mystery shoppers necesarios</dt><dd>${desglose.shoppersNecesarios}</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="result-block">
+        <h3>Desglose del cálculo (uso interno)</h3>
+        <table class="breakdown-table">
+          <tbody>
+            <tr><td colspan="2"><strong>A. Trabajo de campo presencial</strong></td></tr>
+            <tr><td>Horas por visita (traslado + espera/atención + carga informe)</td><td>${desglose.horasPorVisita.toLocaleString('es-PY')} horas</td></tr>
+            <tr><td>Visitas totales (sucursales × rondas)</td><td>${desglose.visitasTotales}</td></tr>
+            <tr><td>Horas-hombre totales de campo</td><td>${desglose.horasHombreCampo.toLocaleString('es-PY')} horas</td></tr>
+            <tr><td>Visitas posibles por día, por shopper</td><td>${desglose.visitasPorDiaPorShopper}</td></tr>
+            <tr><td>Días necesarios con 1 sola persona</td><td>${desglose.diasNecesariosConUnaPersona}</td></tr>
+            <tr><td>Mystery shoppers necesarios para el plazo deseado</td><td>${desglose.shoppersNecesarios}</td></tr>
+            <tr><td>Costo mano de obra — campo presencial</td><td>${formatearMoneda(desglose.costoCampoManoObra, config.moneda)}</td></tr>
+
+            <tr><td colspan="2"><strong>B. Viáticos</strong></td></tr>
+            <tr><td>Viáticos totales (movilidad, solo Asunción)</td><td>${formatearMoneda(desglose.viaticosTotales, config.moneda)}</td></tr>
+
+            <tr><td colspan="2"><strong>C. Canales remotos (WhatsApp / Redes / Web)</strong></td></tr>
+            <tr><td>Interacciones totales (aseguradoras × canales × rondas)</td><td>${desglose.interaccionesTotales}</td></tr>
+            <tr><td>Horas-hombre totales — gestión remota</td><td>${desglose.horasHombreRemoto.toLocaleString('es-PY')} horas</td></tr>
+            <tr><td>Costo mano de obra — canales remotos</td><td>${formatearMoneda(desglose.costoRemotoManoObra, config.moneda)}</td></tr>
+
+            <tr><td colspan="2"><strong>D. Coordinación y análisis</strong></td></tr>
+            <tr><td>Horas totales (diseño de guion + análisis e informe)</td><td>${desglose.horasCoordinacion.toLocaleString('es-PY')} horas</td></tr>
+            <tr><td>Costo coordinación y análisis</td><td>${formatearMoneda(desglose.costoCoordinacion, config.moneda)}</td></tr>
+
+            <tr><td colspan="2"><strong>E. Resumen y total</strong></td></tr>
+            <tr><td>Subtotal mano de obra (campo + remoto + coordinación)</td><td>${formatearMoneda(desglose.subtotalManoObra, config.moneda)}</td></tr>
+            <tr><td>Subtotal general (mano de obra + viáticos)</td><td>${formatearMoneda(desglose.subtotalGeneral, config.moneda)}</td></tr>
+            <tr><td>Costo adicional manual ${inputs.extraCostReason ? '(' + inputs.extraCostReason + ')' : ''}</td><td>${formatearMoneda(desglose.costoAdicionalManual, config.moneda)}</td></tr>
+            <tr class="subtotal-row"><td>Subtotal antes de margen</td><td>${formatearMoneda(desglose.subtotalAntesMargen, config.moneda)}</td></tr>
+            <tr><td>Margen de ganancia (${desglose.margenPercent}%)</td><td>${formatearMoneda(desglose.margenComercial, config.moneda)}</td></tr>
+            <tr class="subtotal-row"><td>Subtotal con margen</td><td>${formatearMoneda(desglose.subtotalConMargen, config.moneda)}</td></tr>
+            <tr class="discount-row"><td>Descuento (${desglose.descuentoPercent}%)</td><td>- ${formatearMoneda(desglose.montoDescuento, config.moneda)}</td></tr>
+            <tr class="subtotal-row"><td>Subtotal</td><td>${formatearMoneda(desglose.subtotalConDescuento, config.moneda)}</td></tr>
+            <tr><td>IVA (${desglose.ivaPercent}%)</td><td>${formatearMoneda(desglose.montoIva, config.moneda)}</td></tr>
+            <tr class="total-row"><td>TOTAL PROPUESTA</td><td>${formatearMoneda(desglose.total, config.moneda)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="result-grid">
+        <div class="stat-card"><span class="stat-label">Dotación de campo (shoppers)</span><span class="stat-value">${desglose.shoppersNecesarios} persona(s)</span></div>
+        <div class="stat-card"><span class="stat-label">Costo promedio por sucursal</span><span class="stat-value">${formatearMoneda(costoPromedioPorSucursal, config.moneda)}</span></div>
+        <div class="stat-card"><span class="stat-label">Costo promedio por aseguradora</span><span class="stat-value">${formatearMoneda(costoPromedioPorAseguradora, config.moneda)}</span></div>
+        <div class="stat-card stat-card-margin"><span class="stat-label">Margen de ganancia (${desglose.margenPercent}%)</span><span class="stat-value">${formatearMoneda(desglose.margenComercial, config.moneda)}</span></div>
+      </div>
+  `;
+}
+
+function renderResultado(resultado, config) {
+  const { inputs, desglose, isCustom, costoMensualEstimado } = resultado;
+  const wrapper = document.getElementById('resultadoWrapper');
+  const esMS = esMysteryShopper(inputs);
+
+  const numeroCotizacion = APP_STATE.editingQuoteId
+    ? (getHistory().find((q) => q.id === APP_STATE.editingQuoteId)?.numero || getNextQuoteNumber())
+    : getNextQuoteNumberPreview();
+
+  const cuerpo = esMS
+    ? construirCuerpoResultadoMysteryShopper(resultado, config)
+    : construirCuerpoResultadoAuditoria(resultado, config);
+
+  wrapper.innerHTML = `
+    <div class="card result-card">
+      <div class="result-header">
+        <div>
+          <h2>Cotización ${numeroCotizacion}</h2>
+          <p class="muted">${inputs.clientName} · ${SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType} · ${inputs.projectName || 'Sin nombre de proyecto'}</p>
+        </div>
+        <div class="total-badge">
+          <span class="total-label">Total estimado</span>
+          <span class="total-value">${formatearMoneda(desglose.total, config.moneda)}</span>
+          ${esMS ? '' : `<span class="total-secondary">≈ ${formatearMoneda(costoMensualEstimado, config.moneda)} / mes</span>`}
+        </div>
+      </div>
+
+      ${isCustom ? `<div class="alert alert-warning">Este servicio requiere una cotización personalizada. El cálculo mostrado es <strong>estimado y está sujeto a revisión</strong>.</div>` : ''}
+
+      ${cuerpo}
 
       <div class="alert alert-info">
         Cotización estimativa y sujeta a validación comercial y operativa. El precio final puede variar según el alcance definitivo, ubicación de los puntos de venta y requerimientos adicionales del cliente.
@@ -995,6 +1323,7 @@ function getNextQuoteNumberPreview() {
 function guardarCotizacionEnHistorial(resultado, numeroPreview) {
   const historial = getHistory();
   const { inputs, desglose } = resultado;
+  const esMS = esMysteryShopper(inputs);
 
   let numero;
   let existing = null;
@@ -1008,14 +1337,18 @@ function guardarCotizacionEnHistorial(resultado, numeroPreview) {
     numero = getNextQuoteNumber();
   }
 
+  const alcance = esMS
+    ? `${inputs.msAseguradorasCount || 0} aseg. · ${inputs.msSucursalesPresencial || 0} suc.`
+    : `${inputs.pdvCount} PDV`;
+
   const record = {
     id: existing ? existing.id : cryptoId(),
     numero,
     cliente: inputs.clientName,
     fecha: inputs.quoteDate,
     servicio: inputs.serviceType,
-    pdv: inputs.pdvCount,
-    zona: inputs.zone,
+    pdv: alcance,
+    zona: esMS ? 'asuncion' : inputs.zone,
     total: desglose.total,
     estado: existing ? existing.estado : 'Borrador',
     resultado, // se guarda el objeto completo para poder ver/editar/duplicar/generar PDF luego
@@ -1293,6 +1626,13 @@ function rellenarFormularioConfigGeneral(config) {
   f.horasPorVisitaPdv.value = config.horasPorVisitaPdv;
   f.aguinaldoPercent.value = config.aguinaldoPercent;
   f.ipsPatronalPercent.value = config.ipsPatronalPercent;
+  f.msTrasladoPorVisitaHoras.value = config.msTrasladoPorVisitaHoras;
+  f.msEsperaInteraccionHoras.value = config.msEsperaInteraccionHoras;
+  f.msCargaInformeHoras.value = config.msCargaInformeHoras;
+  f.msJornadaEfectivaHorasDia.value = config.msJornadaEfectivaHorasDia;
+  f.msTiempoGestionInteraccionHoras.value = config.msTiempoGestionInteraccionHoras;
+  f.msHorasDisenoGuion.value = config.msHorasDisenoGuion;
+  f.msHorasAnalisisInforme.value = config.msHorasAnalisisInforme;
 }
 
 function guardarConfigGeneral() {
@@ -1311,6 +1651,13 @@ function guardarConfigGeneral() {
     horasPorVisitaPdv: Number(f.horasPorVisitaPdv.value),
     aguinaldoPercent: Number(f.aguinaldoPercent.value),
     ipsPatronalPercent: Number(f.ipsPatronalPercent.value),
+    msTrasladoPorVisitaHoras: Number(f.msTrasladoPorVisitaHoras.value),
+    msEsperaInteraccionHoras: Number(f.msEsperaInteraccionHoras.value),
+    msCargaInformeHoras: Number(f.msCargaInformeHoras.value),
+    msJornadaEfectivaHorasDia: Number(f.msJornadaEfectivaHorasDia.value),
+    msTiempoGestionInteraccionHoras: Number(f.msTiempoGestionInteraccionHoras.value),
+    msHorasDisenoGuion: Number(f.msHorasDisenoGuion.value),
+    msHorasAnalisisInforme: Number(f.msHorasAnalisisInforme.value),
   };
 
   CAMPOS_MONEDA_CONFIG.forEach((campo) => {
@@ -1321,7 +1668,9 @@ function guardarConfigGeneral() {
     ...CAMPOS_MONEDA_CONFIG, 'surchargeGranAsuncionPercent',
     'surchargeInteriorPercent', 'pdvPerAuditor', 'margenComercialPercent',
     'ivaPercent', 'descuentoMaximoPercent', 'horasPorVisitaPdv',
-    'aguinaldoPercent', 'ipsPatronalPercent',
+    'aguinaldoPercent', 'ipsPatronalPercent', 'msTrasladoPorVisitaHoras',
+    'msEsperaInteraccionHoras', 'msCargaInformeHoras', 'msJornadaEfectivaHorasDia',
+    'msTiempoGestionInteraccionHoras', 'msHorasDisenoGuion', 'msHorasAnalisisInforme',
   ];
   const negativos = camposNumericos.filter((c) => nuevaConfig[c] < 0);
   if (negativos.length) {
@@ -1402,7 +1751,7 @@ function renderHistorial() {
   const zonaLabel = ZONA_LABELS;
 
   if (filtrado.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="muted">No hay cotizaciones que coincidan con la búsqueda.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="muted">No hay cotizaciones que coincidan con la búsqueda.</td></tr>';
     return;
   }
 
@@ -1410,6 +1759,7 @@ function renderHistorial() {
     <tr>
       <td>${q.numero}</td>
       <td>${q.cliente}</td>
+      <td>${SERVICE_TYPE_LABELS[q.servicio] || SERVICE_TYPE_LABELS.auditoria}</td>
       <td>${q.fecha}</td>
       <td>${q.pdv}</td>
       <td>${zonaLabel[q.zona] || q.zona}</td>
@@ -1499,12 +1849,15 @@ function cargarCotizacionEnFormulario(record) {
       f[key].value = inputs[key];
     }
   });
+  actualizarCamposPorTipoServicio(inputs.serviceType === 'mysteryShopper' ? 'mysteryShopper' : 'auditoria');
+  f.serviceType.value = inputs.serviceType === 'mysteryShopper' ? 'mysteryShopper' : 'auditoria';
   document.getElementById('departmentWrapper').style.display =
     (inputs.zone === 'interior' || inputs.zone === 'granAsuncion') ? 'block' : 'none';
   document.getElementById('zoneSplitWrapper').style.display =
     inputs.zone === 'combinada' ? 'block' : 'none';
   document.getElementById('auditorsCountWrapper').style.display =
     inputs.auditorsMode === 'manual' ? 'block' : 'none';
+  attachMilesFormatting(document.getElementById('extraCostManual'));
 
   APP_STATE.editingQuoteId = record.id;
   const config = getConfig();
@@ -1540,6 +1893,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function construirHtmlPreview(resultado, config, numero, tipo) {
+  const { inputs } = resultado;
+  if (esMysteryShopper(inputs)) {
+    return construirHtmlPreviewMysteryShopper(resultado, config, numero, tipo);
+  }
+  return construirHtmlPreviewAuditoria(resultado, config, numero, tipo);
+}
+
+function construirHtmlPreviewAuditoria(resultado, config, numero, tipo) {
   const { inputs, desglose, ciclos, totalProductos, totalVisitas, costoMensualEstimado } = resultado;
   const zonaLabel = ZONA_LABELS[inputs.zone] || inputs.zone;
   const detalleZonaCombinada = inputs.zone === 'combinada'
@@ -1562,7 +1923,7 @@ function construirHtmlPreview(resultado, config, numero, tipo) {
       <h3>Alcance del servicio</h3>
       <table class="breakdown-table">
         <tbody>
-          <tr><td>Tipo de servicio</td><td>${inputs.serviceType}</td></tr>
+          <tr><td>Tipo de servicio</td><td>${SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType}</td></tr>
           <tr><td>Cantidad de PDV</td><td>${inputs.pdvCount}</td></tr>
           <tr><td>Productos por PDV</td><td>${inputs.productsPerPdv}</td></tr>
           <tr><td>Total de productos a auditar</td><td>${totalProductos.toLocaleString('es-PY')}</td></tr>
@@ -1594,6 +1955,59 @@ function construirHtmlPreview(resultado, config, numero, tipo) {
   `;
 }
 
+function construirHtmlPreviewMysteryShopper(resultado, config, numero, tipo) {
+  const { inputs, desglose, totalVisitas, totalInteracciones } = resultado;
+
+  const filasInternas = tipo === 'interno' ? `
+    <tr><td>Margen de ganancia (${desglose.margenPercent}%)</td><td>${formatearMoneda(desglose.margenComercial, config.moneda)}</td></tr>
+  ` : '';
+
+  return `
+    <div class="preview-doc">
+      <h2>Cotización de Servicios de Mystery Shopper</h2>
+      <p class="muted">N° ${numero} · Fecha: ${inputs.quoteDate}${inputs.validity ? ' · Vigencia: ' + inputs.validity + ' días' : ''}</p>
+      <hr>
+      <h3>Cliente</h3>
+      <p>${inputs.clientName}${inputs.contactName ? ' — Contacto: ' + inputs.contactName : ''}</p>
+      ${inputs.projectName ? `<p>Proyecto: ${inputs.projectName}</p>` : ''}
+
+      <h3>Alcance del servicio</h3>
+      <table class="breakdown-table">
+        <tbody>
+          <tr><td>Tipo de servicio</td><td>${SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType}</td></tr>
+          <tr><td>Aseguradoras a monitorear</td><td>${inputs.msAseguradorasCount || 0}</td></tr>
+          <tr><td>Sucursales a visitar (presencial)</td><td>${inputs.msSucursalesPresencial || 0}</td></tr>
+          <tr><td>Canales remotos por aseguradora</td><td>${inputs.msCanalesRemotos || 0}</td></tr>
+          <tr><td>Rondas de relevamiento</td><td>${inputs.msRondas || 1}</td></tr>
+          <tr><td>Plazo deseado</td><td>${inputs.msPlazoDeseadoDias || 0} días hábiles</td></tr>
+          <tr><td>Visitas presenciales totales</td><td>${totalVisitas}</td></tr>
+          <tr><td>Interacciones remotas totales</td><td>${totalInteracciones}</td></tr>
+          <tr><td>Mystery shoppers necesarios</td><td>${desglose.shoppersNecesarios}</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Costos</h3>
+      <table class="breakdown-table">
+        <tbody>
+          <tr><td>Mano de obra — campo presencial</td><td>${formatearMoneda(desglose.costoCampoManoObra, config.moneda)}</td></tr>
+          <tr><td>Viáticos de movilidad</td><td>${formatearMoneda(desglose.viaticosTotales, config.moneda)}</td></tr>
+          <tr><td>Mano de obra — canales remotos</td><td>${formatearMoneda(desglose.costoRemotoManoObra, config.moneda)}</td></tr>
+          <tr><td>Coordinación y análisis</td><td>${formatearMoneda(desglose.costoCoordinacion, config.moneda)}</td></tr>
+          ${filasInternas}
+          <tr><td>Descuento (${desglose.descuentoPercent}%)</td><td>- ${formatearMoneda(desglose.montoDescuento, config.moneda)}</td></tr>
+          <tr><td>IVA (${desglose.ivaPercent}%)</td><td>${formatearMoneda(desglose.montoIva, config.moneda)}</td></tr>
+          <tr class="total-row"><td>TOTAL PROPUESTA</td><td>${formatearMoneda(desglose.total, config.moneda)}</td></tr>
+        </tbody>
+      </table>
+
+      <p class="muted" style="margin-top:16px;font-size:12px;">
+        Cotización estimativa y sujeta a validación comercial y operativa. El precio final puede variar según el alcance definitivo
+        y requerimientos adicionales del cliente.
+      </p>
+    </div>
+  `;
+}
+
 function generarPdf(resultado, config, numero, tipo) {
   if (!window.jspdf) {
     alert('No se pudo cargar la librería de generación de PDF. Verifique su conexión a internet.');
@@ -1601,7 +2015,7 @@ function generarPdf(resultado, config, numero, tipo) {
   }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const { inputs, desglose, ciclos, totalProductos, totalVisitas, costoMensualEstimado } = resultado;
+  const { inputs } = resultado;
   const margin = 40;
   let y = margin;
   const lineHeight = 16;
@@ -1631,6 +2045,23 @@ function generarPdf(resultado, config, numero, tipo) {
     y += lineHeight;
   }
 
+  const ctx = { doc, margin, lineHeight, pageWidth, addLine, addRow, getY: () => y, setY: (v) => { y = v; } };
+
+  if (esMysteryShopper(inputs)) {
+    generarCuerpoPdfMysteryShopper(ctx, resultado, config, numero, tipo);
+  } else {
+    generarCuerpoPdfAuditoria(ctx, resultado, config, numero, tipo);
+  }
+
+  const sufijo = tipo === 'interno' ? 'interno' : 'cliente';
+  doc.save(`${numero.replace(/\s.*$/, '')}-${sufijo}.pdf`);
+}
+
+function generarCuerpoPdfAuditoria(ctx, resultado, config, numero, tipo) {
+  const { addLine, addRow, margin, pageWidth, doc } = ctx;
+  const { inputs, desglose, ciclos, totalProductos, totalVisitas, costoMensualEstimado } = resultado;
+  let y = ctx.getY();
+
   const zonaLabel = ZONA_LABELS[inputs.zone] || inputs.zone;
   const detalleZonaCombinada = inputs.zone === 'combinada'
     ? ` (Asu: ${inputs.pdvAsuncion || 0} / G.Asu: ${inputs.pdvGranAsuncion || 0} / Int: ${inputs.pdvInterior || 0})`
@@ -1643,10 +2074,10 @@ function generarPdf(resultado, config, numero, tipo) {
   addRow('Cliente', inputs.clientName);
   if (inputs.contactName) addRow('Contacto', inputs.contactName);
   if (inputs.projectName) addRow('Proyecto', inputs.projectName);
-  y += 8;
+  y = ctx.getY() + 8; ctx.setY(y);
 
   addLine('ALCANCE DEL SERVICIO', { bold: true, size: 12, lh: 18 });
-  addRow('Tipo de servicio', inputs.serviceType);
+  addRow('Tipo de servicio', SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType);
   addRow('Cantidad de PDV', String(inputs.pdvCount));
   addRow('Productos por PDV', String(inputs.productsPerPdv));
   addRow('Total de productos a auditar', totalProductos.toLocaleString('es-PY'));
@@ -1654,7 +2085,7 @@ function generarPdf(resultado, config, numero, tipo) {
   addRow('Visitas totales', String(totalVisitas));
   addRow('Duración', `${inputs.durationMonths} mes(es) (${ciclos} ciclos)`);
   addRow('Auditores requeridos', String(desglose.cantidadAuditores));
-  y += 8;
+  y = ctx.getY() + 8; ctx.setY(y);
 
   addLine('COSTOS', { bold: true, size: 12, lh: 18 });
   addRow('Precio base por ciclo', formatearMoneda(desglose.precioBaseCiclo, config.moneda));
@@ -1672,24 +2103,71 @@ function generarPdf(resultado, config, numero, tipo) {
   addRow(`Descuento (${desglose.descuentoPercent}%)`, '- ' + formatearMoneda(desglose.montoDescuento, config.moneda));
   addRow(`IVA (${desglose.ivaPercent}%)`, formatearMoneda(desglose.montoIva, config.moneda));
 
-  y += 4;
+  y = ctx.getY() + 4; ctx.setY(y);
   doc.setDrawColor(200);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 18;
+  y += 18; ctx.setY(y);
   addLine(`TOTAL ESTIMADO: ${formatearMoneda(desglose.total, config.moneda)}`, { bold: true, size: 13, lh: 20 });
   addLine(`Costo mensual estimado (promedio): ${formatearMoneda(costoMensualEstimado, config.moneda)}`, { size: 10, lh: 16 });
 
-  y += 10;
+  agregarDisclaimerPdf(ctx, 'Cotización estimativa y sujeta a validación comercial y operativa. El precio final puede variar según el alcance definitivo, ubicación de los puntos de venta y requerimientos adicionales del cliente.');
+}
+
+function generarCuerpoPdfMysteryShopper(ctx, resultado, config, numero, tipo) {
+  const { addLine, addRow, margin, pageWidth, doc } = ctx;
+  const { inputs, desglose, totalVisitas, totalInteracciones } = resultado;
+  let y;
+
+  addLine('Cotización de Servicios de Mystery Shopper', { size: 16, bold: true, lh: 24 });
+  addLine(`N° ${numero}  ·  Fecha: ${inputs.quoteDate}${inputs.validity ? '  ·  Vigencia: ' + inputs.validity + ' días' : ''}`, { size: 10, lh: 22 });
+
+  addLine('DATOS DEL CLIENTE', { bold: true, size: 12, lh: 18 });
+  addRow('Cliente', inputs.clientName);
+  if (inputs.contactName) addRow('Contacto', inputs.contactName);
+  if (inputs.projectName) addRow('Proyecto', inputs.projectName);
+  y = ctx.getY() + 8; ctx.setY(y);
+
+  addLine('ALCANCE DEL SERVICIO', { bold: true, size: 12, lh: 18 });
+  addRow('Tipo de servicio', SERVICE_TYPE_LABELS[inputs.serviceType] || inputs.serviceType);
+  addRow('Aseguradoras a monitorear', String(inputs.msAseguradorasCount || 0));
+  addRow('Sucursales a visitar (presencial)', String(inputs.msSucursalesPresencial || 0));
+  addRow('Canales remotos por aseguradora', String(inputs.msCanalesRemotos || 0));
+  addRow('Rondas de relevamiento', String(inputs.msRondas || 1));
+  addRow('Plazo deseado', `${inputs.msPlazoDeseadoDias || 0} días hábiles`);
+  addRow('Visitas presenciales totales', String(totalVisitas));
+  addRow('Interacciones remotas totales', String(totalInteracciones));
+  addRow('Mystery shoppers necesarios', String(desglose.shoppersNecesarios));
+  y = ctx.getY() + 8; ctx.setY(y);
+
+  addLine('COSTOS', { bold: true, size: 12, lh: 18 });
+  addRow('Mano de obra — campo presencial', formatearMoneda(desglose.costoCampoManoObra, config.moneda));
+  addRow('Viáticos de movilidad', formatearMoneda(desglose.viaticosTotales, config.moneda));
+  addRow('Mano de obra — canales remotos', formatearMoneda(desglose.costoRemotoManoObra, config.moneda));
+  addRow('Coordinación y análisis', formatearMoneda(desglose.costoCoordinacion, config.moneda));
+
+  if (tipo === 'interno') {
+    addRow(`Margen de ganancia (${desglose.margenPercent}%)`, formatearMoneda(desglose.margenComercial, config.moneda));
+  }
+
+  addRow(`Descuento (${desglose.descuentoPercent}%)`, '- ' + formatearMoneda(desglose.montoDescuento, config.moneda));
+  addRow(`IVA (${desglose.ivaPercent}%)`, formatearMoneda(desglose.montoIva, config.moneda));
+
+  y = ctx.getY() + 4; ctx.setY(y);
+  doc.setDrawColor(200);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 18; ctx.setY(y);
+  addLine(`TOTAL PROPUESTA: ${formatearMoneda(desglose.total, config.moneda)}`, { bold: true, size: 13, lh: 20 });
+
+  agregarDisclaimerPdf(ctx, 'Cotización estimativa y sujeta a validación comercial y operativa. El precio final puede variar según el alcance definitivo y requerimientos adicionales del cliente.');
+}
+
+function agregarDisclaimerPdf(ctx, texto) {
+  const { doc, margin, pageWidth } = ctx;
+  let y = ctx.getY() + 10;
   doc.setFontSize(8);
   doc.setFont(undefined, 'italic');
-  const disclaimer = doc.splitTextToSize(
-    'Cotización estimativa y sujeta a validación comercial y operativa. El precio final puede variar según el alcance definitivo, ubicación de los puntos de venta y requerimientos adicionales del cliente.',
-    pageWidth - margin * 2
-  );
+  const disclaimer = doc.splitTextToSize(texto, pageWidth - margin * 2);
   doc.text(disclaimer, margin, y);
-
-  const sufijo = tipo === 'interno' ? 'interno' : 'cliente';
-  doc.save(`${numero.replace(/\s.*$/, '')}-${sufijo}.pdf`);
 }
 
 /* ==========================================================================
@@ -1701,6 +2179,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavegacion();
   initInfoTooltips();
   initFormularioCotizacion();
+  actualizarCamposPorTipoServicio('auditoria');
   initCalculoRapido();
   initConfiguracion();
   initHistorial();

@@ -58,7 +58,7 @@
 
       <div id="formErrors" class="alert alert-danger" style="display:none;"></div>
 
-      <form id="formCotizacion" class="card form-grid" autocomplete="off">
+      <form id="formCotizacion" class="card form-grid" autocomplete="off" novalidate>
 
         <fieldset class="form-section">
           <legend>Datos del cliente</legend>
@@ -95,33 +95,37 @@
         </fieldset>
 
         <fieldset class="form-section">
-          <legend>Datos del servicio</legend>
-
+          <legend>Tipo de servicio</legend>
           <div class="form-field">
             <label for="serviceType">Tipo de servicio <button type="button" class="info-icon" data-info="serviceType" aria-label="Información">i</button></label>
             <select id="serviceType" name="serviceType">
-              <option value="Auditoría en punto de venta">Auditoría en punto de venta</option>
+              <option value="auditoria">Auditoría en punto de venta</option>
+              <option value="mysteryShopper">Mystery Shopper</option>
             </select>
           </div>
+        </fieldset>
+
+        <fieldset class="form-section" id="fieldsetAuditoria">
+          <legend>Alcance del servicio — Auditoría en PDV</legend>
 
           <div class="form-field">
             <label for="pdvCount">Cantidad de puntos de venta (PDV) * <button type="button" class="info-icon" data-info="pdvCount" aria-label="Información">i</button></label>
-            <input type="number" id="pdvCount" name="pdvCount" min="1" required>
+            <input type="number" id="pdvCount" name="pdvCount" min="1">
           </div>
 
           <div class="form-field">
             <label for="productsPerPdv">Productos aproximados por PDV * <button type="button" class="info-icon" data-info="productsPerPdv" aria-label="Información">i</button></label>
-            <input type="number" id="productsPerPdv" name="productsPerPdv" min="0" required>
+            <input type="number" id="productsPerPdv" name="productsPerPdv" min="0">
           </div>
 
           <div class="form-field">
             <label for="visitsPerPdv">Visitas por PDV (por ciclo) * <button type="button" class="info-icon" data-info="visitsPerPdv" aria-label="Información">i</button></label>
-            <input type="number" id="visitsPerPdv" name="visitsPerPdv" min="1" value="1" required>
+            <input type="number" id="visitsPerPdv" name="visitsPerPdv" min="1" value="1">
           </div>
 
           <div class="form-field">
             <label for="frequency">Frecuencia * <button type="button" class="info-icon" data-info="frequency" aria-label="Información">i</button></label>
-            <select id="frequency" name="frequency" required>
+            <select id="frequency" name="frequency">
               <option value="unica">Única</option>
               <option value="semanal">Semanal</option>
               <option value="quincenal">Quincenal</option>
@@ -131,12 +135,12 @@
 
           <div class="form-field">
             <label for="durationMonths">Duración del proyecto (meses) * <button type="button" class="info-icon" data-info="durationMonths" aria-label="Información">i</button></label>
-            <input type="number" id="durationMonths" name="durationMonths" min="1" value="1" required>
+            <input type="number" id="durationMonths" name="durationMonths" min="1" value="1">
           </div>
 
           <div class="form-field">
             <label for="zone">Zona * <button type="button" class="info-icon" data-info="zone" aria-label="Información">i</button></label>
-            <select id="zone" name="zone" required>
+            <select id="zone" name="zone">
               <option value="asuncion">Asunción</option>
               <option value="granAsuncion">Gran Asunción</option>
               <option value="interior">Interior</option>
@@ -182,7 +186,41 @@
           </div>
         </fieldset>
 
-        <fieldset class="form-section">
+        <fieldset class="form-section" id="fieldsetMysteryShopper" style="display:none;">
+          <legend>Alcance del servicio — Mystery Shopper</legend>
+
+          <div class="form-field">
+            <label for="msAseguradorasCount">Aseguradoras a monitorear (competencia) <button type="button" class="info-icon" data-info="msAseguradorasCount" aria-label="Información">i</button></label>
+            <input type="number" id="msAseguradorasCount" name="msAseguradorasCount" min="0" value="1">
+          </div>
+
+          <div class="form-field">
+            <label for="msSucursalesPresencial">Sucursales a visitar (presencial, Asunción) <button type="button" class="info-icon" data-info="msSucursalesPresencial" aria-label="Información">i</button></label>
+            <input type="number" id="msSucursalesPresencial" name="msSucursalesPresencial" min="0" value="0">
+          </div>
+
+          <div class="form-field">
+            <label for="msCanalesRemotos">Canales remotos por aseguradora <button type="button" class="info-icon" data-info="msCanalesRemotos" aria-label="Información">i</button></label>
+            <input type="number" id="msCanalesRemotos" name="msCanalesRemotos" min="0" value="3">
+          </div>
+
+          <div class="form-field">
+            <label for="msRondas">Rondas de relevamiento <button type="button" class="info-icon" data-info="msRondas" aria-label="Información">i</button></label>
+            <input type="number" id="msRondas" name="msRondas" min="1" value="1">
+          </div>
+
+          <div class="form-field">
+            <label for="msPlazoDeseadoDias">Plazo deseado (días hábiles) <button type="button" class="info-icon" data-info="msPlazoDeseadoDias" aria-label="Información">i</button></label>
+            <input type="number" id="msPlazoDeseadoDias" name="msPlazoDeseadoDias" min="1" value="3">
+          </div>
+
+          <p class="muted small-note form-field-full">
+            Este servicio está calculado para operar en Asunción capital (trabajo de campo presencial), más el
+            monitoreo de canales remotos (WhatsApp, Redes Sociales, Web) de cada aseguradora, sin límite geográfico.
+          </p>
+        </fieldset>
+
+        <fieldset class="form-section" id="fieldsetServiciosAdicionales">
           <legend>Servicios adicionales</legend>
           <div class="checkbox-grid">
             <label class="checkbox-item"><input type="checkbox" name="requiresTraslado"> Requiere traslado <button type="button" class="info-icon" data-info="requiresTraslado" aria-label="Información">i</button></label>
@@ -347,8 +385,9 @@
             <tr>
               <th>N° Cotización</th>
               <th>Cliente</th>
+              <th>Servicio</th>
               <th>Fecha</th>
-              <th>PDV</th>
+              <th>Alcance</th>
               <th>Zona</th>
               <th>Total estimado</th>
               <th>Estado</th>
@@ -367,6 +406,9 @@
         <p class="muted">Todos los valores aquí son <strong>VALORES DE EJEMPLO</strong>. Edítelos según sus tarifas reales.</p>
       </div>
 
+      <details class="service-accordion" open>
+        <summary>🔍 Auditoría en punto de venta</summary>
+        <div class="service-accordion-body">
       <div class="card">
         <div class="card-header-row">
           <h2>Escalas de precio según cantidad de PDV</h2>
@@ -392,8 +434,14 @@
           "cotización personalizada" y calculará un valor orientativo.
         </p>
       </div>
+        </div>
+      </details>
 
       <form id="formConfigGeneral" class="card form-grid">
+
+        <details class="service-accordion form-field-full" open>
+          <summary>🔍 Parámetros — Auditoría en punto de venta</summary>
+          <div class="service-accordion-body form-grid">
         <fieldset class="form-section">
           <legend>Modalidad de cálculo</legend>
           <div class="form-field">
@@ -474,21 +522,6 @@
           </div>
         </fieldset>
 
-        <fieldset class="form-section">
-          <legend>Comercial</legend>
-          <div class="form-field">
-            <label for="margenComercialPercent">Margen de ganancia (%) <button type="button" class="info-icon" data-info="margenComercialPercent" aria-label="Información">i</button></label>
-            <input type="number" id="margenComercialPercent" name="margenComercialPercent" min="0" step="0.5">
-          </div>
-          <div class="form-field">
-            <label for="ivaPercent">IVA (%) <button type="button" class="info-icon" data-info="ivaPercent" aria-label="Información">i</button></label>
-            <input type="number" id="ivaPercent" name="ivaPercent" min="0" step="0.5">
-          </div>
-          <div class="form-field">
-            <label for="descuentoMaximoPercent">Descuento máximo permitido (%) <button type="button" class="info-icon" data-info="descuentoMaximoPercent" aria-label="Información">i</button></label>
-            <input type="number" id="descuentoMaximoPercent" name="descuentoMaximoPercent" min="0" step="0.5">
-          </div>
-        </fieldset>
 
         <fieldset class="form-section">
           <legend>Mano de obra (horas hombre)</legend>
@@ -512,6 +545,91 @@
           <div class="form-field">
             <label for="ipsPatronalPercent">IPS patronal (%) <button type="button" class="info-icon" data-info="ipsPatronalPercent" aria-label="Información">i</button></label>
             <input type="number" id="ipsPatronalPercent" name="ipsPatronalPercent" min="0" step="0.5">
+          </div>
+        </fieldset>
+          </div>
+        </details>
+
+        <details class="service-accordion form-field-full">
+          <summary>🕵️ Parámetros — Mystery Shopper</summary>
+          <div class="service-accordion-body form-grid">
+        <fieldset class="form-section">
+          <legend>Trabajo de campo — Mystery Shopper</legend>
+          <p class="muted small-note form-field-full" style="margin:-4px 0 4px;">
+            Supuestos operativos para las visitas presenciales (Asunción capital).
+          </p>
+          <div class="form-field">
+            <label for="msTrasladoPorVisitaHoras">Traslado ida y vuelta por visita (horas) <button type="button" class="info-icon" data-info="msTrasladoPorVisitaHoras" aria-label="Información">i</button></label>
+            <input type="number" id="msTrasladoPorVisitaHoras" name="msTrasladoPorVisitaHoras" min="0" step="0.05">
+          </div>
+          <div class="form-field">
+            <label for="msEsperaInteraccionHoras">Espera + interacción con el asesor (horas) <button type="button" class="info-icon" data-info="msEsperaInteraccionHoras" aria-label="Información">i</button></label>
+            <input type="number" id="msEsperaInteraccionHoras" name="msEsperaInteraccionHoras" min="0" step="0.05">
+          </div>
+          <div class="form-field">
+            <label for="msCargaInformeHoras">Carga de informe / evidencia por visita (horas) <button type="button" class="info-icon" data-info="msCargaInformeHoras" aria-label="Información">i</button></label>
+            <input type="number" id="msCargaInformeHoras" name="msCargaInformeHoras" min="0" step="0.05">
+          </div>
+          <div class="form-field">
+            <label for="msJornadaEfectivaHorasDia">Jornada efectiva de campo por día (horas/día) <button type="button" class="info-icon" data-info="msJornadaEfectivaHorasDia" aria-label="Información">i</button></label>
+            <input type="number" id="msJornadaEfectivaHorasDia" name="msJornadaEfectivaHorasDia" min="0" step="0.5">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Canales remotos — Mystery Shopper</legend>
+          <div class="form-field">
+            <label for="msTiempoGestionInteraccionHoras">Tiempo de gestión por interacción (horas) <button type="button" class="info-icon" data-info="msTiempoGestionInteraccionHoras" aria-label="Información">i</button></label>
+            <input type="number" id="msTiempoGestionInteraccionHoras" name="msTiempoGestionInteraccionHoras" min="0" step="0.05">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Coordinación y análisis — Mystery Shopper</legend>
+          <p class="muted small-note form-field-full" style="margin:-4px 0 4px;">
+            Tareas únicas del proyecto (no se repiten por visita ni por interacción).
+          </p>
+          <div class="form-field">
+            <label for="msHorasDisenoGuion">Horas de diseño de guion y briefing <button type="button" class="info-icon" data-info="msHorasDisenoGuion" aria-label="Información">i</button></label>
+            <input type="number" id="msHorasDisenoGuion" name="msHorasDisenoGuion" min="0" step="0.5">
+          </div>
+          <div class="form-field">
+            <label for="msHorasAnalisisInforme">Horas de análisis y armado de informe final <button type="button" class="info-icon" data-info="msHorasAnalisisInforme" aria-label="Información">i</button></label>
+            <input type="number" id="msHorasAnalisisInforme" name="msHorasAnalisisInforme" min="0" step="0.5">
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Costos unitarios — Mystery Shopper</legend>
+          <div class="form-field">
+            <label for="msCostoHoraShopper">Costo hora — Mystery Shopper / relevador (Gs.) <button type="button" class="info-icon" data-info="msCostoHoraShopper" aria-label="Información">i</button></label>
+            <input type="text" id="msCostoHoraShopper" name="msCostoHoraShopper" inputmode="numeric">
+          </div>
+          <div class="form-field">
+            <label for="msCostoHoraAnalista">Costo hora — Analista / Coordinador (Gs.) <button type="button" class="info-icon" data-info="msCostoHoraAnalista" aria-label="Información">i</button></label>
+            <input type="text" id="msCostoHoraAnalista" name="msCostoHoraAnalista" inputmode="numeric">
+          </div>
+          <div class="form-field">
+            <label for="msViaticoPorVisita">Viático de movilidad por visita presencial (Gs.) <button type="button" class="info-icon" data-info="msViaticoPorVisita" aria-label="Información">i</button></label>
+            <input type="text" id="msViaticoPorVisita" name="msViaticoPorVisita" inputmode="numeric">
+          </div>
+        </fieldset>
+          </div>
+        </details>
+
+        <fieldset class="form-section">
+          <legend>Comercial (aplica a todos los servicios)</legend>
+          <div class="form-field">
+            <label for="margenComercialPercent">Margen de ganancia (%) <button type="button" class="info-icon" data-info="margenComercialPercent" aria-label="Información">i</button></label>
+            <input type="number" id="margenComercialPercent" name="margenComercialPercent" min="0" step="0.5">
+          </div>
+          <div class="form-field">
+            <label for="ivaPercent">IVA (%) <button type="button" class="info-icon" data-info="ivaPercent" aria-label="Información">i</button></label>
+            <input type="number" id="ivaPercent" name="ivaPercent" min="0" step="0.5">
+          </div>
+          <div class="form-field">
+            <label for="descuentoMaximoPercent">Descuento máximo permitido (%) <button type="button" class="info-icon" data-info="descuentoMaximoPercent" aria-label="Información">i</button></label>
+            <input type="number" id="descuentoMaximoPercent" name="descuentoMaximoPercent" min="0" step="0.5">
           </div>
         </fieldset>
 

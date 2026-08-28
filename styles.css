@@ -549,6 +549,60 @@ th .info-icon {
 }
 
 /* ==========================================================================
+   ACORDEONES DE SERVICIO (Configuración de costos)
+   ========================================================================== */
+
+.service-accordion {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.service-accordion summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 22px;
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--color-primary);
+  background: var(--color-bg);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.service-accordion summary::-webkit-details-marker { display: none; }
+
+.service-accordion summary::after {
+  content: '▸';
+  margin-left: auto;
+  color: var(--color-text-muted);
+  transition: transform 0.15s ease;
+}
+
+.service-accordion[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.service-accordion summary:hover {
+  background: #eef1f6;
+}
+
+.service-accordion-body {
+  padding: 22px;
+}
+
+/* Dentro del form, los fieldsets dentro del acordeon no necesitan borde superior extra */
+.service-accordion-body .form-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ==========================================================================
    RESPONSIVE
    ========================================================================== */
 
